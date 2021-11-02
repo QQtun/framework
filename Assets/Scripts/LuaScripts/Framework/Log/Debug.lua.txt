@@ -1,0 +1,32 @@
+local log = CS.LogUtil.Debug.Log;
+local logFormat = CS.LogUtil.Debug.LogFormat;
+local logError = CS.LogUtil.Debug.LogError;
+local logErrorFormat = CS.LogUtil.Debug.LogErrorFormat;
+local logWarning = CS.LogUtil.Debug.LogWarning;
+local logWarningFormat = CS.LogUtil.Debug.LogWarningFormat;
+
+Debug = {
+    Log = function(msg, tag)
+        log("LUA: " .. msg, tag)
+    end,
+
+    LogFormat = function(msg, ...)
+        logFormat("LUA: " .. msg, ...)
+    end,
+
+    LogError = function(msg, tag)
+        logError("LUA: " .. msg, tag)
+    end,
+
+    LogErrorFormat = function(msg, ...)
+        logErrorFormat("LUA: " .. msg, ...)
+    end,
+
+    LogWarning = function(msg, tag)
+        logWarning("LUA: " .. msg, tag)
+    end,
+
+    LogWarningFormat = function(msg, ...)
+        logWarningFormat("LUA: " .. msg, ...)
+    end,
+}

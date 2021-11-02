@@ -1,0 +1,27 @@
+local moduleManager = {}
+moduleManager.mModuleManagerCS = CS.Core.Framework.Module.ModuleManager.Instance
+moduleManager.mAllModules = {}
+
+function moduleManager:RegisterNetworkModule(luaModule)
+    self.mModuleManagerCS:RegisterNetworkModule(luaModule)
+    self.mAllModules[luaModule.Id] = luaModule
+end
+
+function moduleManager:GetModule(moduleId)
+    local luaModule = self.mAllModules[moduleId]
+    if luaModule ~= nil then
+        return luaModule
+    end
+    local csModule = self.mModuleManagerCS:GetModule(moduleId)
+    return csModule
+end
+
+function moduleManager:OnAllModuleInitialized(op, func)
+    self.mModuleManagerCS:OnAllModuleInitialized(op, func);
+end
+
+function moduleManager:StartGameInit()
+    self.mModuleManagerCS:StartGameInit();
+end
+
+return moduleManager;

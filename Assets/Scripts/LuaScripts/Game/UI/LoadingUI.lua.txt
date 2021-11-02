@@ -1,0 +1,113 @@
+function OnOpen(self)
+    Debug.Log("OnOpen name=" .. self.mName);
+    -- Debug.LogFormat("2 OnOpen name={0}", self.mName)
+    CS.Core.Framework.Scene.SceneManager.Instance:AddEntry(self);
+
+    self.mProgress = 0;
+    self.mProgressText = self.mProgressText:GetComponent(CsClassType.UIText);
+end
+
+function OnClose(self)    
+    Debug.Log("OnClose name=" .. self.mName);
+    CS.Core.Framework.Scene.SceneManager.Instance:RemoveEntry(self);
+end
+
+-- start ISceneEntry
+function OnEntering(self, from, to, param)
+    Debug.Log("OnEntering from=" .. from);
+    Debug.Log("OnEntering to=" .. to);
+
+    if from == "InitScene" and to == "LoginScene" then
+        self.mProgress = 0;
+        self:InitGame();
+    else
+        self.mProgress = 0;
+        self:Preload(to);
+    end
+end
+
+function OnEnteringProcess(self, from, to, param)
+    self.mProgress = self.mProgress + 1;
+    if from == "InitScene" and to == "LoginScene" then
+        if self:IsInitGameReady() and self.mLoginEntryGo == nil then
+            self.mLoginEntryGo = CS.UnityEngine.GameObject("LoginSceneEntry");
+            local loginScene = self.mLoginEntryGo:AddComponent(CsClassType.LoginScene);
+            loginScene:Init();
+            if self.mProgress == 99 then
+                self.mProgress = 100;
+            end
+        elseif not self:IsInitGameReady() and self.mProgress >= 100 then
+            self.mProgress = 99;
+        end
+        
+        self.mProgressText.text = string.format("progress... %d %%", self.mProgress);
+    else
+        if Framework.ModuleManager.ModuleInitializing and self.mProgress >= 100 then
+            self.mProgress = 99;
+        end
+        
+        self.mProgressText.text = string.format("progress... %d %%", self.mProgress);
+        if self.mProgress == 100 then            
+            self.mProgressText.text = "場景載入中..."
+        end
+    end
+
+    Debug.Log("OnEnteringProcess mProgress=" .. self.mProgress);
+    return self.mProgress;
+end
+-- end ISceneEntry
+
+function IsInitGameReady(self)
+    local ret = self.mPbFileReady and self.mInitHandle.IsDone and self.mTableReady
+    return ret
+end
+
+function InitGame(self)
+    self.mPbFileReady = false;
+    Framework.ResourceManager:LoadTextAssetAsync(ProtobufUtil.ProtoFilePath, function(txtAsset)
+        Debug.Log("pb loaded");
+        ProtobufUtil.LoadPb(txtAsset);
+        self.mPbFileReady = true;
+    end)
+
+    -- 下載所有資源
+    self.mInitHandle = CS.UnityEngine.AddressableAssets.Addressables.DownloadDependenciesAsync("init");
+    self.mInitHandle:Completed('+', function(h)
+        -- ??
+    end);
+
+    self.mTableReady = false;
+    Game.TableGroup.ReloadAll(function()
+        self.mTableReady = true;
+    end)
+end
+
+function Preload(self, mapId)
+    -- TODO 預載入
+end
+
+--[[
+function Awake(  )
+    Debug.Log("Awake")
+end
+
+function Start(  )
+    Debug.Log("Start")
+end
+
+function OnEnable(  )
+    Debug.Log("OnEnable")
+end
+
+function OnDisable(  )
+    Debug.Log("OnDisable")
+end
+
+function Update(  )
+    Debug.Log("Update")
+end
+
+function OnDestroy(  )
+    Debug.Log("OnDestroy")
+end
+--]]

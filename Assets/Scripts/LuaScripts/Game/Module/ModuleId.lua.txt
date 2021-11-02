@@ -1,0 +1,6 @@
+ModuleId = {
+    TestModule1 = 1,
+    TestModule2 = 2,
+    LuaModule = 3,
+    RoleDataModule = 4,
+}

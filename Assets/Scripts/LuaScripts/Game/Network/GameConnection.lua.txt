@@ -1,0 +1,31 @@
+local gameConnection = {}
+gameConnection.mGameConnectionCS = CS.Core.Game.Network.GameConnection.Instance
+
+setmetatable(gameConnection, {
+    __index = function(table, key)
+        return gameConnection.mGameConnectionCS[key]
+    end
+});
+
+function gameConnection:Send(msgId, req, typeName)    
+    local bytes = ProtobufUtil.Encode(typeName, req);
+    self.mGameConnectionCS:Send(msgId, bytes);
+end
+
+function gameConnection:OnConnected(...)
+    self.mGameConnectionCS:OnConnected(...);
+end
+
+function gameConnection:OnReceivedMessage(...)
+    self.mGameConnectionCS:OnReceivedMessage(...);
+end
+
+function gameConnection:OnDisconnected(...)
+    self.mGameConnectionCS:OnDisconnected(...);
+end
+
+function gameConnection:Login(...)
+    self.mGameConnectionCS:Login(...);
+end
+
+return gameConnection;

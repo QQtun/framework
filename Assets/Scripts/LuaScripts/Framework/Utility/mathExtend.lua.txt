@@ -1,0 +1,55 @@
+-- File: mathExtend.lua
+-- Auth: Sun
+-- Date: 2018-10-15 09:12:42
+-- Desc:
+
+
+function math.newrandomseed()
+    local ok, socket = pcall(function()
+        return require("socket")
+    end)
+
+    if ok then
+		math.randomseed(tostring(math.floor(socket.gettime() * 1000)):reverse():sub(1, 6))
+    else
+        math.randomseed(tostring(os.time()):reverse():sub(1, 6))
+    end
+    math.random()
+    math.random()
+    math.random()
+    math.random()
+end
+--角度常量定义
+math.rad2deg = math.pi / 180
+math.deg2rad = 57.2958;
+
+function math.round(value)
+    value = checknumber(value)
+    return math.floor(value + 0.5)
+end
+
+function math.angle2radian(angle)
+    return angle * math.rad2deg
+end
+
+local pi_mul_180 = math.pi * 180
+function math.radian2angle(radian)
+    return radian / pi_mul_180
+end
+--==============================--
+--desc:指定返回值的范围
+--time:2018-04-25 06:28:37
+--@v:
+--@min:
+--@max:
+--@return 
+--==============================--
+function math.clamp( v, min, max )
+    if v < min then
+        return min
+    end
+    if v > max then
+        return max
+    end
+    return v
+end

@@ -1,0 +1,36 @@
+
+require "Framework/Log/Debug"
+require "Framework/Utility/functions"
+require "Framework/Utility/ioExtend"
+require "Framework/Utility/mathExtend"
+require "Framework/Utility/stringExtend"
+require "Framework/Utility/tableExtend"
+
+
+IntList = CS.System.Collections.Generic.List(CS.System.Int32)
+StringList = CS.System.Collections.Generic.List(CS.System.String)
+FloatList = CS.System.Collections.Generic.List(CS.System.Single)
+
+if Framework == nil then
+    Framework = {}
+end
+
+Framework.EventSystem = CS.Core.Framework.Event.EventSystem.Instance
+Framework.LuaManager = CS.Core.Framework.Lua.LuaManager.Instance
+Framework.ModuleManager = require "Framework/Module/ModuleManager"
+Framework.ResourceManager = CS.Core.Framework.Res.ResourceManager.Instance
+Framework.SceneManager = CS.Core.Framework.Scene.SceneManager.Instance
+Framework.ScheduleManager = CS.Core.Framework.Schedule.ScheduleManager.Instance
+Framework.UIManager = CS.Core.Framework.UI.UIManager.Instance
+
+-- local iList = IntList();
+-- iList:Add(1)
+-- Debug.LogFormat("iList.Count={0}", iList.Count)
+
+-- local sList = StringList();
+-- sList:Add("abc")
+-- Debug.LogFormat("sList.Count={0}", sList.Count)
+
+-- local fList = FloatList();
+-- fList:Add(123)
+-- Debug.LogFormat("fList.Count={0}", fList.Count)

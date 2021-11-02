@@ -1,0 +1,26 @@
+local pb = require "xLua/pbc/protobuf";
+local packageName = "P5.Protobuf.";
+
+ProtobufUtil = {
+    ProtoFilePath = "Assets/PublicAssets/Configs/Pb/p5.pb.txt",
+
+    LoadPb = function(txtAsset)
+        pb.register(txtAsset.bytes)
+    end,
+
+    Decode = function(className, bytes, length)
+        if string.sub(className, 1, string.len(packageName)) == packageName then
+        else
+            className = packageName .. className
+        end
+        return pb.decode(className, bytes, length)
+    end,
+
+    Encode = function(className, luaTable)
+        if string.sub(className, 1, string.len(packageName)) == packageName then
+        else
+            className = packageName .. className
+        end
+        return pb.encode(className, luaTable)
+    end,
+}

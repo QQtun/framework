@@ -1,0 +1,4 @@
+require("Game/Module/ModuleId")
+
+--local luaModule = require("Game/Module/LuaModule")
+-- Framework.ModuleManager:RegisterNetworkModule(loginModule)

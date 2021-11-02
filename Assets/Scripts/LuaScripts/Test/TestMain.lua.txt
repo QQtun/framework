@@ -1,0 +1,20 @@
+local pb = require "xLua/pbc/protobuf";
+
+local pbFile = "Assets/PublicAssets/Configs/Proto/TestProto.pb.txt"
+CS.Core.Framework.Res.ResourceManager.Instance:LoadTextAssetAsync(pbFile,
+function(txtAsset)
+    -- Debug.Log(h.Result.name)
+    -- CS.UnityEngine.GameObject.DontDestroyOnLoad(h.Result)
+    pb.register(txtAsset.bytes)
+end)
+
+function TestDecode(msg)
+    -- local bytes = msg.Data.Array;
+    -- local count = msg.Data.Count;
+    -- local data = pb.decode("RoleData4Selector", bytes, count)
+    -- local RoleName = msg.Data.RoleName;
+
+    -- local bytes = msg.RawData.Array;
+    -- local count = msg.RawData.Count;
+    -- local data = pb.decode("RoleData4Selector", bytes, count)
+end

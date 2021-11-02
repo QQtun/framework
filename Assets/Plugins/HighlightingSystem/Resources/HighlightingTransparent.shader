@@ -1,0 +1,66 @@
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Hidden/Highlighted/Transparent"
+{
+	Properties
+	{
+		[HideInInspector] _MainTex ("", 2D) = "" {}
+		[HideInInspector] _Cutoff ("", Float) = 0.5
+		[HideInInspector] _Cull ("", Int) = 2
+	}
+	
+	SubShader
+	{
+		Pass
+		{
+			Lighting Off
+			Fog { Mode Off }
+			ZWrite On
+			
+			Cull [_Cull]
+			
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+			#pragma fragmentoption ARB_precision_hint_fastest
+			#include "UnityCG.cginc"
+
+			uniform sampler2D _MainTex;
+			uniform float4 _MainTex_ST;
+			uniform fixed _Cutoff;
+
+			struct appdata_vert_tex
+			{
+				float4 vertex : POSITION;
+				float2 texcoord : TEXCOORD0;
+				fixed4 color : COLOR;
+			};
+
+			struct v2f
+			{
+				float4 pos : SV_POSITION;
+				float2 texcoord : TEXCOORD0;
+				fixed alpha : TEXCOORD1;
+			};
+
+			v2f vert(appdata_vert_tex v)
+			{
+				v2f o;
+				o.pos = UnityObjectToClipPos(v.vertex);
+				o.texcoord = TRANSFORM_TEX(v.texcoord, _MainTex);
+				o.alpha = v.color.a;
+				return o;
+			}
+
+			fixed4 frag(v2f i) : SV_Target
+			{
+				fixed a = tex2D(_MainTex, i.texcoord).a;
+				clip(a - _Cutoff);
+				return fixed4(0,0,0,1);
+			}
+			ENDCG
+		}
+	}
+	
+	Fallback Off
+}

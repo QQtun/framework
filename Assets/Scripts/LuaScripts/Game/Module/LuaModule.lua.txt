@@ -1,0 +1,46 @@
+local luaModule = {}
+
+luaModule.Id = ModuleId.LuaModule
+luaModule.mDependencyModules = IntList()
+luaModule.mDependencyModules:Add(123)
+luaModule.mMsgIds = IntList()
+luaModule.mMsgIds:Add(364)
+
+function luaModule:DependencyModules()
+    Debug.Log("luaModule DependencyModules")
+    return self.mDependencyModules
+end
+
+function luaModule:OnStart()
+    Debug.Log("luaModule Onstart")
+end
+
+function luaModule:OnDestroy()
+    Debug.Log("luaModule OnDestroy")
+end
+
+function luaModule:OnApplicationPause(pauseStatus)
+    Debug.LogFormat("luaModule OnApplicationPause pauseStatus={0}", pauseStatus)
+end
+
+function luaModule:OnUpdate()
+    -- Debug.Log("luaModule OnUpdate")
+end
+
+function luaModule:GetMessageIds()
+    Debug.Log("luaModule GetMessageIds")
+    return self.mMsgIds
+end
+
+function luaModule:OnConnected()
+    Debug.Log("luaModule OnConnected")
+end
+function luaModule:OnReceivedMessage(msg)
+    Debug.LogFormat("luaModule OnReceivedMessage msgId={0}", msg.MessageId)
+end
+
+function luaModule:OnDisconnected(reason)
+    Debug.LogFormat("luaModule OnDisconnected reason={0}", reason)
+end
+
+return luaModule;

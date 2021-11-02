@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.txt": "lua"
+    },
+    "luaide.apiType": "xlua",
+    "editor.snippetSuggestions": "bottom",
+    "git.ignoreLimitWarning": true
+}

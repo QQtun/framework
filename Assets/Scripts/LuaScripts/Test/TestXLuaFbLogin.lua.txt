@@ -1,0 +1,37 @@
+
+function start()
+	print("lua start...")
+	mInitBtn:GetComponent("Button").onClick:AddListener(onInitClick)
+	mLoginBtn:GetComponent("Button").onClick:AddListener(onLoginClick)
+end
+
+function onInitClick()
+	print("onInitClick")
+	CS.Facebook.Unity.FB.Init(
+		function() 
+			print("init finished") 
+		end, 
+		function(b) 
+			print("failed !") 
+		end);
+end
+
+function onLoginClick()
+	print("onLoginClick")
+	local List_String = CS.System.Collections.Generic.List(CS.System.String)
+	local list = List_String()
+	list:Add("public_profile")
+	list:Add("email")
+	list:Add("user_friends")
+	CS.Facebook.Unity.FB.LogInWithReadPermissions(list, HandleResult);
+end
+
+function HandleResult(result)
+	print("HandleResult")
+
+	print(string.format("Result Error=%s", result.Error))
+	print(string.format("Result Cancelled=%s", result.Cancelled))
+	print(string.format("Result RawResult=%s", result.RawResult))
+
+	print(string.format("Result AccessToken.TokenString =%s", result.AccessToken.TokenString ))
+end

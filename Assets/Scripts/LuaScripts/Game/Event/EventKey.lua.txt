@@ -1,0 +1,10 @@
+if Game.EventKey == nil then
+    Game.EventKey = {
+        OnObjectAdded = "OnObjectAdded",
+        OnObjectRemoved = "OnObjectRemoved",
+
+        OnRoleList = "OnRoleList",
+        OnCreateRole = "OnCreateRole",
+        OnInitGame = "OnInitGame",
+    }
+end

@@ -1,0 +1,64 @@
+breakSocketHandle, debugXpCall = require("LuaDebug")("localhost",7003)
+
+require "CsClass"
+require "Framework/Init"
+require "Game/Init"
+
+-- local util = require 'xLua/util'
+-- local yield_return = (require 'xLua/cs_coroutine').yield_return
+-- local coroutineFun = function()
+--     Debug.Log("StartCoroutine")
+--     while(not CS.Core.Framework.Res.ResourceManager.Instance.IsInitialized)
+--     do
+--         yield_return(CS.UnityEngine.WaitForEndOfFrame())
+--         Debug.Log("Wait IsInitialized")
+--     end
+
+--     local pb = require "xLua/pbc/protobuf"
+--     local pbFile = "Assets/PublicAssets/Configs/Proto/TestProto.pb.txt"
+
+--     CS.Core.Framework.Res.ResourceManager.Instance:LoadTextAssetAsync(pbFile, function(txtAsset)
+--         pb.register(txtAsset.bytes)
+--             local luatable =  {
+--                 str = "aaaaa",
+--                 value1 = 100,
+--                 value2 = 999,
+--             }
+
+--             local data = pb.encode("TestData", luatable)
+--             local newLuaTable = pb.decode("TestData", data)
+
+--             dump(newLuaTable)
+
+--             CS.Core.Framework.Res.ResourceManager.Instance:TestBytes(1, data, luatable, function(cs_data)
+--                 local newLuaTable2 = pb.decode("TestData", cs_data)
+--                 dump(newLuaTable)
+--             end,
+--             function(cs_obj)
+--                 Debug.Log(cs_obj.Str)
+--             end)
+--     end)
+-- end
+-- local coroutineCall = util.coroutine_call(coroutineFun)
+-- coroutineCall()
+
+-- local handle = CS.UnityEngine.AddressableAssets.Addressables.LoadAsync(pbFile)
+-- handle:Completed('+', 
+--     function(h)
+--         -- Debug.Log(h.Result.name)
+--         -- CS.UnityEngine.GameObject.DontDestroyOnLoad(h.Result)
+--         pb.register(h.Result.bytes)
+
+--         local luatable =  {
+--             str = "aaaaa",
+--             value1 = 100,
+--             value2 = 999,
+--           }
+
+--         local data = pb.encode("TestData", luatable)
+--         local newLuaTable = pb.decode("TestData", data)
+
+--         dump(newLuaTable)
+--     end)
+
+

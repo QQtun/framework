@@ -1,0 +1,39 @@
+if Game == nil then
+    Game = {}
+end
+
+Game.GameConnection = require "Game/Network/GameConnection"
+Game.TableGroup = CS.Core.Game.Table.TableGroup
+Game.GameScene = CS.Core.Game.Scene.GameScene.Instance
+
+require "Game/Event/EventKey"
+require "Game/Module/Init"
+require "Game/Network/ServerCmd"
+require "Game/Network/ProtobufUtil"
+
+Game.SpSkillIndex = {
+    Lash1 = 0,
+    Lash2 = 1,
+    Dodge1 = 2,
+    Dodge2 = 3,
+    Dodge3 = 4,
+    Dodge4 = 5,
+    Dodge0 = 6,
+    Buff = 7,
+    Attack1 = 8,
+    Attack2 = 9,
+    Attack3 = 10,
+    Attack4 = 11,
+    Walk = 12,
+    WitchTime = 13,
+    Awake1 = 14,
+    Awake2 = 15,
+    MagicCombo1 = 16,
+    MagicCombo2 = 17,
+    MagicCombo3 = 18,
+    MagicCombo4 = 19,
+    NewDodge = 20,
+    NewWitchTime = 21,
+    WitchTimeBack = 22,
+    NewWitchTimeBack = 23,
+}

@@ -1,0 +1,38 @@
+function OnOpen(self)
+    Debug.Log("OnOpen name=" .. self.mName)
+    
+    self.mJoystick = self.mJoystick:GetComponent(CsClassType.Joystick);
+    self.mAttackBtn = self.mAttackBtn:GetComponent(CsClassType.LongClickButton);
+    self.mDodgeBtn = self.mDodgeBtn:GetComponent(CsClassType.LongClickButton);
+    self.mHpSlider = self.mHpSlider:GetComponent(CsClassType.UISlider);
+    self.mHpText = self.mHpText:GetComponent(CsClassType.UIText)
+
+    self.mJoystick.onValueChanged:AddListener(handler(self, self.OnJoystickValueChange));
+    self.mAttackBtn.onClick:AddListener(handler(self, self.OnAttackClick));
+    self.mDodgeBtn.onClick:AddListener(handler(self, self.OnDodgeClick));
+
+    local roleModule = Framework.ModuleManager:GetModule(ModuleId.RoleDataModule);
+    local roleData = roleModule.RoleDetail;
+    self.mHpText.text = string.format("%d/%d", roleData.LifeV, roleData.MaxLifeV);
+    self.mHpSlider.value = roleData.LifeV / roleData.MaxLifeV;
+end
+
+function OnClose(self)    
+    Debug.Log("OnClose name=" .. self.mName)
+end
+
+function OnJoystickValueChange(self, value)
+    -- Debug.LogFormat("OnJoystickValueChange value={0}", value);
+end
+
+function OnAttackClick(self)
+    Debug.Log("OnAttackClick");
+    local magicId = Game.TableGroup.ConfigTable.SpecialMagic1[Game.SpSkillIndex.Attack1]
+    Debug.LogFormat("OnAttackClick magicId={0}", magicId);
+    Game.GameScene:OnAttackClick();
+end
+
+function OnDodgeClick(self)
+    Debug.Log("OnDodgeClick");
+    Game.GameScene:OnDodgeClick();
+end

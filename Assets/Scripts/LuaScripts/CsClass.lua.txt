@@ -1,0 +1,19 @@
+CsClass = {
+    UIText = CS.UnityEngine.UI.Text,
+    UIButton = CS.UnityEngine.UI.Button,
+    UISlider = CS.UnityEngine.UI.Slider,
+    UIInputField = CS.UnityEngine.UI.InputField,
+    Joystick = CS.Core.Game.UI.Widget.Joystick,
+    LongClickButton = CS.Core.Game.UI.Widget.LongClickButton,
+    LoginScene = CS.Core.Game.Scene.LoginScene,
+    MainScene = CS.Core.Game.Scene.MainScene,
+    LoginParam = CS.Core.Game.Network.LoginParam,
+};
+
+CsClassType = {};
+CsClassName = {};
+for k, v in pairs(CsClass) do
+    local type = typeof(v);
+    CsClassType[k] = type;
+    CsClassName[k] = type.FullName;
+end

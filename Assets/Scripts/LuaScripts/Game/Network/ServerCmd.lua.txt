@@ -1,0 +1,9 @@
+-- 必須與 Core\Game\Network\ServerCmd.cs 保持一致
+
+ServerCmd = {
+    UserLogin = 10, 
+    GameLogin = 12,
+    RoleList = 20,
+    CreateRole = 21,
+    InitGame = 80,
+}

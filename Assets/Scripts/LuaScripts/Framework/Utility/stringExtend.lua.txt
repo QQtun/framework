@@ -1,0 +1,207 @@
+-- File: stringExtend.lua
+-- Auth: Sun
+-- Date: 2018-10-15 09:03:27
+-- Desc: string库扩展
+
+string._htmlspecialchars_set = {}
+string._htmlspecialchars_set["&"] = "&amp;"
+string._htmlspecialchars_set["\""] = "&quot;"
+string._htmlspecialchars_set["'"] = "&#039;"
+string._htmlspecialchars_set["<"] = "&lt;"
+string._htmlspecialchars_set[">"] = "&gt;"
+local StringUtil = CS.XML.Client.Tools.StringUtil
+local format_ = string.format
+function string.format(formatstr, ...)
+    if string.find(formatstr, "{%d.*}") then
+       return StringUtil.substitute(formatstr, ...)
+    else
+        return format_(formatstr, ...)
+    end
+end
+function string.htmlspecialchars(input)
+    for k, v in pairs(string._htmlspecialchars_set) do
+        input = string.gsub(input, k, v)
+    end
+    return input
+end
+
+function string.restorehtmlspecialchars(input)
+    for k, v in pairs(string._htmlspecialchars_set) do
+        input = string.gsub(input, v, k)
+    end
+    return input
+end
+
+function string.nl2br(input)
+    return string.gsub(input, "\n", "<br />")
+end
+
+function string.text2html(input)
+    input = string.gsub(input, "\t", "    ")
+    input = string.htmlspecialchars(input)
+    input = string.gsub(input, " ", "&nbsp;")
+    input = string.nl2br(input)
+    return input
+end
+
+
+function string.splitToNum(input, delimiter)
+    input = tostring(input)
+    delimiter = delimiter or ","
+    if (delimiter=='') then return false end
+    local pos,arr = 0, {}
+    -- for each divider found
+    for st,sp in function() return string.find(input, delimiter, pos, true) end do
+        table.insert(arr, tonumber(string.sub(input, pos, st - 1)))
+        pos = sp + 1
+    end
+    if input ~= '' then --BYSUN
+        table.insert(arr, tonumber(string.sub(input, pos)))
+    end
+    return arr
+end
+
+function string.ltrim(input)
+    return string.gsub(input, "^[ \t\n\r]+", "")
+end
+
+function string.rtrim(input)
+    return string.gsub(input, "[ \t\n\r]+$", "")
+end
+
+function string.trim(input)
+    input = string.gsub(input, "^[ \t\n\r]+", "")
+    return string.gsub(input, "[ \t\n\r]+$", "")
+end
+
+function string.ucfirst(input)
+    return string.upper(string.sub(input, 1, 1)) .. string.sub(input, 2)
+end
+
+local function urlencodechar(char)
+    return "%" .. string.format("%02X", string.byte(char))
+end
+function string.urlencode(input)
+    -- convert line endings
+    input = string.gsub(tostring(input), "\n", "\r\n")
+    -- escape all characters but alphanumeric, '.' and '-'
+    input = string.gsub(input, "([^%w%.%- ])", urlencodechar)
+    -- convert spaces to "+" symbols
+    return string.gsub(input, " ", "+")
+end
+
+function string.urldecode(input)
+    input = string.gsub (input, "+", " ")
+    input = string.gsub (input, "%%(%x%x)", function(h) return string.char(checknumber(h,16)) end)
+    input = string.gsub (input, "\r\n", "\n")
+    return input
+end
+
+function string.utf8len(input)
+    return utf8.len(input);
+end
+--[[
+  AUTHORS: BYSUN
+  截取固定位置的utf8字符串
+  
+  local input = 截取固定位置的utf8字符串
+  Debug.Log(string.utf8_sub(0,2))
+  输出 截取
+
+  @param input 输入字符串
+  @param start 起始索引，0开始(utf8 字符索引)
+  @param leng  字符个数(utf8 字符)
+
+--]]
+function string.utf8_sub(input,start,leng)
+    local len  = string.len(input)
+    if len <= leng then
+        return input
+    end
+    local min,max  = start,len  
+    local pos = utf8.offset(input, leng+1, min);
+    max = pos-1;
+
+    return string.sub(input,min,max)
+end
+function string.formatnumberthousands(num)
+    local formatted = tostring(checknumber(num))
+    local k
+    while true do
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted
+end
+function string.IsNullOrEmpty(value)
+    return value == nil or value == "";
+end
+function string.isEqualIgnoreCase(left, right)
+    if left == right then
+        return true;
+    end
+    left = string.lower(left);
+    right= string.lower(right);
+    return left == right;
+end
+function string.parseformat( format )
+    --body
+    if string.IsNullOrEmpty(format) then
+        return format
+    end
+    format= string.gsub(format, "({%d+})", function() return "%%s" end);
+    return string.format(format);
+end
+function string.FormatLikeCSharp(fmt,...)
+    assert(fmt ~= nil,"Format error:Invalid Format String")
+    local parms = {...}
+    
+    function search(k)
+      --从 C# 数组习惯转到 Lua
+      k = k + 1
+      assert(k <= #parms and k >=0 ,"Format error:IndexOutOfRange")
+      return tostring(parms[k])
+    end
+    
+    return (string.gsub(fmt,"{(%d)}",search))
+end
+--[[
+    格式化字符串
+]]
+function string.FormatTime( time, format )
+    local day = math.floor(time / 86400)
+
+    time = time - 86400 * day;
+    local hour = math.floor(time / 3600);
+
+    time = time - hour * 3600
+    local min = math.floor(time / 60);
+
+    time = time - min * 60
+    local sec = math.floor(time);
+
+    local  timestr = ""
+    local t = type(format)
+    if t == "string" or not format then
+        if not string.IsNullOrEmpty(format) then
+            timestr = string.format(format, hour, min, sec);
+        else
+            timestr = string.format("%.2d:%.2d:%.2d", hour,min,sec);
+        end
+    elseif t == "table" then
+        if format.d and day > 0 then
+            timestr = timestr .. day .. format.d;
+        end
+        if format.h and hour > 0 then
+            timestr = timestr .. hour .. format.h;
+        end
+        if format.m and min > 0 then
+            timestr = timestr .. min .. format.m;
+        end
+        if format.s and sec > 0 then
+            timestr = timestr .. sec .. format.s;
+        end
+        
+    end
+    return timestr
+end
