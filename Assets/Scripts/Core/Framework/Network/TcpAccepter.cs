@@ -22,6 +22,7 @@ namespace Core.Framework.Network
                     Stop();
                 }
 
+                _newClients.Clear();
                 _tcpLitener = new TcpListener(ip, port);
                 _tcpLitener.Start();
                 _tcpLitener.BeginAcceptTcpClient(OnAcceptTcpClientAsync, _tcpLitener);

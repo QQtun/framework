@@ -30,13 +30,14 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
         _server = new TcpServerTest(clientFactory, _msgFactory, ContentBufferPool.Default);
         clientFactory.Server = _server;
         _server.Start(IPAddress.Parse(ip), port);
+
+        _client = new TcpClietTest(_msgFactory, ContentBufferPool.Default);
     }
 
     public void Connect()
     {
         if (_client != null)
             _client.Disconnect(DisconnectReason.User);
-        _client = new TcpClietTest(_msgFactory, ContentBufferPool.Default);
         _client.Connect(IPAddress.Parse(ip), port);
     }
 
