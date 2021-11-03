@@ -21,6 +21,8 @@ namespace Core.Framework.Network.Data
         
         public Header Header { get; protected set; }
 
+        public Footer Footer { get; set; }
+
         /// <summary>
         ///     封包編號
         /// </summary>

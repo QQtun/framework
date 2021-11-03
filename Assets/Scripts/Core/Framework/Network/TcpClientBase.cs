@@ -46,12 +46,20 @@ namespace Core.Framework.Network
             public bool invoke;
         }
 
+        private class TcpState
+        {
+            public TcpClient tcpClient;
+            public NetworkStream netStream;
+            public Message msg;
+        }
+
         protected TcpClient tcpClient;
         protected NetworkStream netStream;
 
         private ConnectState _connectState;
         private HeaderBuffer _headerBuffer;
         private ContentState _contentState;
+        private FooterBuffer _footerBuffer;
 
         private List<Message> _recvMsgs;
         private List<Message> _recvMsgsMainLoop;
@@ -73,11 +81,12 @@ namespace Core.Framework.Network
             _connectState = new ConnectState();
             _headerBuffer = new HeaderBuffer();
             _contentState = new ContentState();
+            _footerBuffer = new FooterBuffer();
             _recvMsgs = new List<Message>();
             _recvMsgsMainLoop = new List<Message>();
             _disconnetState = new DisconnetState();
             _sendState = new SendState();
-            _sendBuffer = new SendBuffer(pool.BufferSize + Header.HeaderSize);
+            _sendBuffer = new SendBuffer(pool.BufferSize + Header.HeaderSize + Footer.FooterSize);
         }
 
         protected TcpClientBase(TcpClient client, MessageFactory factory, ContentBufferPool pool)
@@ -106,7 +115,9 @@ namespace Core.Framework.Network
                 }
 
                 tcpClient = new TcpClient();
-                tcpClient.BeginConnect(ip, port, OnConnectAsync, tcpClient);
+                var state = new TcpState();
+                state.tcpClient = tcpClient;
+                tcpClient.BeginConnect(ip, port, OnConnectAsync, state);
 
                 return true;
             }
@@ -123,6 +134,8 @@ namespace Core.Framework.Network
             {
                 lock (tcpClient)
                 {
+                    netStream.Close();
+                    netStream = null;
                     tcpClient.Close();
                     tcpClient = null;
                 }
@@ -178,7 +191,10 @@ namespace Core.Framework.Network
 
         public void BegineReceive()
         {
-            BegineReceiveHeader(true);
+            var state = new TcpState();
+            state.tcpClient = tcpClient;
+            state.netStream = netStream;
+            BegineReceiveHeader(true, state);
         }
 
         private void BegineSend()
@@ -206,6 +222,7 @@ namespace Core.Framework.Network
             catch (Exception ex)
             {
                 Debug.LogError(ex);
+                Disconnect(DisconnectReason.Network);
             }
         }
 
@@ -243,17 +260,18 @@ namespace Core.Framework.Network
         {
             try
             {
-                var client = (TcpClient) ar.AsyncState;
-                client.EndConnect(ar);
+                var state = (TcpState) ar.AsyncState;
+                state.tcpClient.EndConnect(ar);
 
-                if(client.Connected)
+                if(state.tcpClient.Connected)
                 {
-                    netStream = client.GetStream();
-                    lock(_connectState)
+                    netStream = state.tcpClient.GetStream();
+                    state.netStream = netStream;
+                    lock (_connectState)
                     {
                         _connectState.invoke = true;
                     }
-                    BegineReceive();
+                    BegineReceiveHeader(true, state);
                 }
                 else
                 {
@@ -271,7 +289,7 @@ namespace Core.Framework.Network
             }
         }
 
-        private void BegineReceiveHeader(bool reset)
+        private void BegineReceiveHeader(bool reset, TcpState state)
         {
             if(reset)
             {
@@ -280,7 +298,7 @@ namespace Core.Framework.Network
 
             try
             {
-                netStream.BeginRead(_headerBuffer.Buffer, _headerBuffer.WriteStartPosition, _headerBuffer.RemainingBufferSize, OnReceiveHeaderAsync, netStream);
+                netStream.BeginRead(_headerBuffer.Buffer, _headerBuffer.WriteStartPosition, _headerBuffer.RemainingBufferSize, OnReceiveHeaderAsync, state);
             }
             catch (Exception ex)
             {
@@ -293,7 +311,8 @@ namespace Core.Framework.Network
         {
             try
             {
-                var netStream = (NetworkStream)ar.AsyncState;
+                var state = (TcpState)ar.AsyncState;
+                var netStream = state.netStream;
                 var readSize = netStream.EndRead(ar);
                 _headerBuffer.IncreaseReceivedSize(readSize);
 
@@ -303,29 +322,20 @@ namespace Core.Framework.Network
                     if(header.ContentSize == 0)
                     {
                         var msg = MessageFactory.CreateMessage(header, ZeroBuffer, 0);
-                        lock (_recvMsgs)
-                        {
-                            _recvMsgs.Add(msg);
-                        }
-
-                        foreach (var buf in _contentState.buffers)
-                        {
-                            ContentBufferPool.Dealloc(buf);
-                        }
-                        _contentState.buffers.Clear();
-                        BegineReceiveHeader(true);
+                        state.msg = msg;
+                        BegineReceiveFooter(true, state);
                     }
                     else
                     {
                         _contentState.header = header;
                         _contentState.receiveSize = 0;
 
-                        BegineReceiveContent();
+                        BegineReceiveContent(state);
                     }
                 }
                 else
                 {
-                    BegineReceiveHeader(false);
+                    BegineReceiveHeader(false, state);
                 }
             }
             catch(ObjectDisposedException ex)
@@ -339,7 +349,7 @@ namespace Core.Framework.Network
             }
         }
 
-        private void BegineReceiveContent()
+        private void BegineReceiveContent(TcpState state)
         {
             try
             {
@@ -351,7 +361,7 @@ namespace Core.Framework.Network
 
                 var recvSize = Math.Min(_contentState.LastBuffer.RemainingBufferSize,
                     _contentState.header.ContentSize - _contentState.receiveSize);
-                netStream.BeginRead(_contentState.LastBuffer.Buffer, _contentState.LastBuffer.WriteStartPosition, recvSize, OnReceiveContentAsync, netStream);
+                netStream.BeginRead(_contentState.LastBuffer.Buffer, _contentState.LastBuffer.WriteStartPosition, recvSize, OnReceiveContentAsync, state);
             }
             catch (Exception ex)
             {
@@ -364,7 +374,8 @@ namespace Core.Framework.Network
         {
             try
             {
-                var netStream = (NetworkStream)ar.AsyncState;
+                var state = (TcpState)ar.AsyncState;
+                var netStream = state.netStream;
                 var readSize = netStream.EndRead(ar);
                 _contentState.LastBuffer.IncreaseReceivedSize(readSize);
                 _contentState.receiveSize += readSize;
@@ -372,21 +383,74 @@ namespace Core.Framework.Network
                 if (_contentState.header.ContentSize == _contentState.receiveSize)
                 {
                     var msg = MessageFactory.CreateMessage(_contentState.header, _contentState.buffers);
-                    lock(_recvMsgs)
-                    {
-                        _recvMsgs.Add(msg);
-                    }
+                    state.msg = msg;
 
-                    foreach(var buf in _contentState.buffers)
+                    foreach (var buf in _contentState.buffers)
                     {
                         ContentBufferPool.Dealloc(buf);
                     }
                     _contentState.buffers.Clear();
-                    BegineReceiveHeader(true);
+
+                    BegineReceiveFooter(true, state);
                 }
                 else
                 {
-                    BegineReceiveContent();
+                    BegineReceiveContent(state);
+                }
+            }
+            catch (ObjectDisposedException ex)
+            {
+                Debug.Log(ex);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(ex);
+                Disconnect(DisconnectReason.Network);
+            }
+        }
+
+        private void BegineReceiveFooter(bool reset, TcpState state)
+        {
+            if (reset)
+            {
+                _footerBuffer.Reset();
+            }
+
+            try
+            {
+                netStream.BeginRead(_footerBuffer.Buffer, _footerBuffer.WriteStartPosition, _footerBuffer.RemainingBufferSize, OnReceiveFooterAsync, state);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(ex);
+                Disconnect(DisconnectReason.Network);
+            }
+        }
+
+        private void OnReceiveFooterAsync(IAsyncResult ar)
+        {
+            try
+            {
+                var state = (TcpState)ar.AsyncState;
+                var netStream = state.netStream;
+                var msg = state.msg;
+                var readSize = netStream.EndRead(ar);
+                _footerBuffer.IncreaseReceivedSize(readSize);
+
+                if (_footerBuffer.IsEnough)
+                {
+                    var footer = _footerBuffer.CreateFooter();
+                    msg.Footer = footer;
+                    lock (_recvMsgs)
+                    {
+                        _recvMsgs.Add(msg);
+                    }
+
+                    BegineReceiveHeader(true, state);
+                }
+                else
+                {
+                    BegineReceiveFooter(false, state);
                 }
             }
             catch (ObjectDisposedException ex)
