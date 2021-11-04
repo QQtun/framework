@@ -52,7 +52,7 @@ namespace Core.Framework.Network.Data
         /// </summary>
         public int TotalSize
         {
-            get { return _contentSize + HeaderSize; } 
+            get { return _contentSize + HeaderSize + Footer.FooterSize; } 
         }
 
         /// <summary>

@@ -60,6 +60,13 @@ namespace Core.Framework.Network.Buffers
 
             // content
             message.Serialize(ms);
+
+            // footer
+            long now = ms.Position;
+            var footer = Footer.Create(Buffer, (int)begin, (int)(now - begin));
+            message.Footer = footer;
+            footer.Serialize(ms);
+
             ms.Flush();
 
             long end = ms.Position;
