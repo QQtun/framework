@@ -34,17 +34,39 @@
         }
 
         public static FixedNumber operator +(FixedNumber a) => a;
-        public static FixedNumber operator -(FixedNumber a) => new FixedNumber(-a._value);
-        public static FixedNumber operator +(FixedNumber a, FixedNumber b) => new FixedNumber(a._value + b._value);
-        public static FixedNumber operator -(FixedNumber a, FixedNumber b) => new FixedNumber(a._value - b._value);
-        public static FixedNumber operator *(FixedNumber a, FixedNumber b) => new FixedNumber(a._value * b._value);
+        public static FixedNumber operator -(FixedNumber a)
+        {
+            var ret = new FixedNumber();
+            ret._value = -a._value;
+            return ret;
+        }
+        public static FixedNumber operator +(FixedNumber a, FixedNumber b)
+        {
+            var ret = new FixedNumber();
+            ret._value = a._value + b._value;
+            return ret;
+        }
+        public static FixedNumber operator -(FixedNumber a, FixedNumber b)
+        {
+            var ret = new FixedNumber();
+            ret._value = a._value - b._value;
+            return ret;
+        }
+        public static FixedNumber operator *(FixedNumber a, FixedNumber b)
+        {
+            var ret = new FixedNumber();
+            ret._value = a._value * b._value;
+            return ret;
+        }
         public static FixedNumber operator /(FixedNumber a, FixedNumber b)
         {
             if (b._value == 0)
             {
                 throw new System.DivideByZeroException();
             }
-            return new FixedNumber(a._value / b._value);
+            var ret = new FixedNumber();
+            ret._value = a._value / b._value;
+            return new FixedNumber(ret);
         }
 
         public static implicit operator int(FixedNumber d) => (int)(d._value / 10000);
