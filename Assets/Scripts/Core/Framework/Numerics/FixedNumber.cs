@@ -3,6 +3,7 @@
     public struct FixedNumber
     {
         public const int TenKilo = 10000;
+        public const double ReciprocalTenKilo = 1 / (double)TenKilo;
 
         private long _value;
 
@@ -55,7 +56,7 @@
         public static FixedNumber operator *(FixedNumber a, FixedNumber b)
         {
             var ret = new FixedNumber();
-            ret._value = a._value * b._value;
+            ret._value = (long)(ReciprocalTenKilo * a._value * b._value);
             return ret;
         }
         public static FixedNumber operator /(FixedNumber a, FixedNumber b)
@@ -65,15 +66,15 @@
                 throw new System.DivideByZeroException();
             }
             var ret = new FixedNumber();
-            ret._value = a._value / b._value;
+            ret._value = a._value / b._value * TenKilo;
             return new FixedNumber(ret);
         }
 
-        public static implicit operator int(FixedNumber d) => (int)(d._value / 10000);
+        public static implicit operator int(FixedNumber d) => (int)(d._value / TenKilo);
         public static implicit operator FixedNumber(int d) => new FixedNumber(d);
-        public static implicit operator float(FixedNumber d) => d._value / 10000f;
+        public static implicit operator float(FixedNumber d) => (float)(d._value / (double)TenKilo);
         public static implicit operator FixedNumber(float d) => new FixedNumber(d);
-        public static implicit operator double(FixedNumber d) => d._value / 10000d;
+        public static implicit operator double(FixedNumber d) => d._value / (double)TenKilo;
         public static implicit operator FixedNumber(double d) => new FixedNumber(d);
 
         public static bool operator ==(FixedNumber lhs, FixedNumber rhs) => lhs._value == rhs._value;
