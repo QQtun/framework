@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace Core.Framework.Network
 {
+    /*
     public class HostAddressHelper
     {
         private static readonly Dictionary<string, IPAddress> IpCacheV4 = new Dictionary<string, IPAddress>();
@@ -178,5 +179,5 @@ namespace Core.Framework.Network
             }
             return address;
         }
-    }
+    }*/
 }
