@@ -59,11 +59,12 @@ namespace Core.Framework.Network.Buffers
             message.Header.Serialize(ms);
 
             // content
+            long contentBegin = ms.Position;
             message.Serialize(ms);
 
             // footer
             long now = ms.Position;
-            var footer = Footer.Create(Buffer, (int)begin, (int)(now - begin));
+            var footer = Footer.Create(Buffer, (int)contentBegin, (int)(now - contentBegin));
             message.Footer = footer;
             footer.Serialize(ms);
 
