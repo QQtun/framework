@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5c04155d43740f46a3223a7eb386e0c, type: 3}
+  m_Name: _UIPopupDatabase
+  m_EditorClassIdentifier: 
+  PopupNames:
+  - ADRewardPopup
+  - EnhanceCharacterPopup
+  - EqProbPopup
+  - GameEndPopup
+  - GetRewardPopup
+  - LobbySettingPopup
+  - MainGameSettingPopup
+  - MainPageBackpackItemDetailPopup
+  - MainPageBackpackPopup
+  - MainPageEquipDetailPopup
+  - MainPageJewelPopup
+  - MainPageMissionPopup
+  - MainPageOfflineRewardPopup
+  - MainPageSettingPopup
+  - MainPageSkillDetailPopup
+  - MiniGameLoginPopup
+  - RankingBoardPopup
+  - RegisterPopup
+  - RetryPopup
+  - RewardInfoPopup
+  - RuleExplainPopup
+  - ServerAnnouncePopup
+  - SwitchCharacterPopup
+  - SwitchTalentSkillPopup
+  - UnlockSkillPopup
+  - UnlockTalentPopup
+  - WorshipAltarPopup
+  - StageDiffSelPopup
+  Popups:
+  - {fileID: 11400000, guid: bc56c4d0fe9084bdd987dfcc57d6e341, type: 2}
+  - {fileID: 11400000, guid: e44947ed8f777334bb59d6a9e166f4cb, type: 2}
+  - {fileID: 11400000, guid: 4315fb99acb844e6ea0325e7d1c3ab51, type: 2}
+  - {fileID: 11400000, guid: 7e6622bff1b3048eaa91ff0852e53d73, type: 2}
+  - {fileID: 11400000, guid: 480a31b9cf19d49f68b476c1f9d4506f, type: 2}
+  - {fileID: 11400000, guid: 5faaae78be651419d8fe0645fa23734f, type: 2}
+  - {fileID: 11400000, guid: 6b3f570f8627d44b197ab1d2aa897cf2, type: 2}
+  - {fileID: 11400000, guid: dd981b14528c84215b1c339c69522a0b, type: 2}
+  - {fileID: 11400000, guid: 9f307cf2f6938416688288d10637c316, type: 2}
+  - {fileID: 11400000, guid: 1c6785893f9684e9cb49123cd697babd, type: 2}
+  - {fileID: 11400000, guid: a57650894977b4b65b7fb24fd78574f0, type: 2}
+  - {fileID: 11400000, guid: 6bc369768340d48d59b5f32ea55dfd0e, type: 2}
+  - {fileID: 11400000, guid: 28466def80f374b3e88f6d493ccef307, type: 2}
+  - {fileID: 11400000, guid: 89b96aa654d27486e9d738e813954644, type: 2}
+  - {fileID: 11400000, guid: 94bec8624f6844950af8137490734059, type: 2}
+  - {fileID: 11400000, guid: bca6e3a3c33fd414c9de3bcdf38c748d, type: 2}
+  - {fileID: 11400000, guid: caea2ecb923a045d2b21e961004e0cfe, type: 2}
+  - {fileID: 11400000, guid: 239f83df5295a4de09b2794955b4aee0, type: 2}
+  - {fileID: 11400000, guid: b484f5bd08aeaf14598bcc73d9172d5f, type: 2}
+  - {fileID: 11400000, guid: acb38041e3660463790fc63a7ff43a6d, type: 2}
+  - {fileID: 11400000, guid: 8346a7935b74148e59fe1856a152d947, type: 2}
+  - {fileID: 11400000, guid: 92a26df04f9ef4d83860620ac66168ec, type: 2}
+  - {fileID: 11400000, guid: e34f27d2b6d252f489b2cebe5723775d, type: 2}
+  - {fileID: 11400000, guid: fb6287748363b8a4f80ac6238d4ff6eb, type: 2}
+  - {fileID: 11400000, guid: 368623d6eff5c43e58a2bf0e2214d249, type: 2}
+  - {fileID: 11400000, guid: 01cbe1f632aa3224baf40a46dd523447, type: 2}
+  - {fileID: 11400000, guid: ddba9481188d34c2bb31de66e1ab4b0a, type: 2}
+  - {fileID: 11400000, guid: 035df8a3adbe345b6b19a2b8bc8d469c, type: 2}

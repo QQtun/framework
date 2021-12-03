@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4c2d9ce944146ff90950f0f03051619, type: 3}
+  m_Name: _SoundyDatabase
+  m_EditorClassIdentifier: 
+  DatabaseNames:
+  - Alert
+  - Click
+  - Effect
+  - EnemySkill
+  - Example Alerts
+  - Example Clicks
+  - Example Music
+  - Example Slides
+  - General
+  - Music
+  - PlayerSkill
+  SoundDatabases:
+  - {fileID: 11400000, guid: a888ab18fa6194f67aa5b9967a3b0284, type: 2}
+  - {fileID: 11400000, guid: 8eba2c230cbe4f84e8ba00ed7ba55028, type: 2}
+  - {fileID: 11400000, guid: 6752d2ca1725cf840b858b622a96bb77, type: 2}
+  - {fileID: 11400000, guid: d6efd9700ef4c504f997ee462880e61e, type: 2}
+  - {fileID: 11400000, guid: f357811014801dc489af9b0c14c815e3, type: 2}
+  - {fileID: 11400000, guid: 5c52267adb9aa44eebe076bec8b89141, type: 2}
+  - {fileID: 11400000, guid: c3e5ebf4533cc470c91f0641d713709f, type: 2}
+  - {fileID: 11400000, guid: 81e54c0cb889f4da3ba2e9eee67731ca, type: 2}
+  - {fileID: 11400000, guid: ef655225ccd40480691d7afe65cb106e, type: 2}
+  - {fileID: 11400000, guid: c60263bbed69d4ecab12d5a484004845, type: 2}
+  - {fileID: 11400000, guid: 428a30c6ceb314461a07e643ad4f01c4, type: 2}
