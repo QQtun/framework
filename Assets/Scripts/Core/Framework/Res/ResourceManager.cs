@@ -37,7 +37,7 @@ namespace Core.Framework.Res
             base.Init();
 
             IsInitialized = false;
-            var handle = Addressables.LoadAssetAsync<AddressableFolderSetting>(AddressableFolderSetting.Path);
+            var handle = Addressables.LoadAssetAsync<AddressableFolderSetting>(AddressableFolderSetting.AssetPath);
             handle.Completed += OnSettingLoaded;
 
             SceneManager.sceneUnloaded += (s) =>

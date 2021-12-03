@@ -14,7 +14,7 @@ namespace Core.Framework.Res
     public class AddressableFolderSetting : ScriptableObject
     {
         public const string FileName = "AddressableFolderSetting.asset";
-        public const string AssetPath = "Assets/ScriptableObjAssets/" + FileName;
+        public const string AssetPath = "Assets/PublicAssets/Configs/" + FileName;
 
         [Serializable]
         public class Filter
@@ -115,7 +115,7 @@ namespace Core.Framework.Res
         public List<FolderSetting> folders = new List<FolderSetting>();
 
 #if UNITY_EDITOR
-        [MenuItem("Tools/Addressable ReimportAll")]
+        [MenuItem("程式工具/Addressable ReimportAll")]
         public static void ReimportAllByDefaultAsset()
         {
             var settings = AssetDatabase.LoadAssetAtPath<AddressableFolderSetting>(AssetPath);
