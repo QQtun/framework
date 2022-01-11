@@ -4,18 +4,26 @@ using UnityEngine;
 
 namespace Core.Framework.Event.Property
 {
+    [Serializable]
+    public class SubscribableField
+    {
+        public const string ValueFieldName = "mValue";
+        public const string LastValueFieldName = "mLastValue";
+    }
+
     /// <summary>
     /// Author: chengdundeng
     /// Date: 2019/11/27
     /// Desc: 可以監聽數值變化的Field
     /// </summary>
-    public class SubscribableField<T> : ISubscribableField<T>
+    [Serializable]
+    public class SubscribableField<T> : SubscribableField, ISubscribableField<T>
     {
         [SerializeField, ReadOnly] private T mLastValue;
 
-        [SerializeField, ReadOnly] private T mValue;
+        [SerializeField] private T mValue;
 
-        private EventSystem _eventSystem;
+        private EventSystem mEventSystem;
 
         public Type ValueType
         {
@@ -30,12 +38,19 @@ namespace Core.Framework.Event.Property
             get { return mValue; }
             set
             {
+                if(UnityEqualityComparer.GetDefault<T>().Equals(mValue, value))
+                {
+                    return;
+                }
+
                 LastValue = mValue;
                 mValue = value;
 
                 NotifyValueChanged();
             }
         }
+
+        private EventSystem EventSystem => mEventSystem ?? EventSystem.Instance;
 
         /// <summary>
         ///     取得上一次屬性值
@@ -46,15 +61,15 @@ namespace Core.Framework.Event.Property
             private set { mLastValue = value; }
         }
 
-        public SubscribableField(EventSystem eventSystem)
+        public SubscribableField(EventSystem eventSystem = null)
         {
-            _eventSystem = eventSystem;
+            mEventSystem = eventSystem;
             mValue = default(T);
         }
 
-        public SubscribableField(EventSystem eventSystem, T initialValue)
+        public SubscribableField(T initialValue, EventSystem eventSystem = null)
         {
-            _eventSystem = eventSystem;
+            mEventSystem = eventSystem;
             mValue = initialValue;
         }
 
@@ -66,7 +81,7 @@ namespace Core.Framework.Event.Property
         {
             SubscribableFieldEvent<T> evt = SubscribableFieldEvent<T>.Allocate(this);
             evt.EventTag = EventTagData.Tag(this);
-            _eventSystem.SendEvent(evt);
+            EventSystem?.SendEvent(evt);
         }
 
         /// <summary>
@@ -82,7 +97,7 @@ namespace Core.Framework.Event.Property
             }
 
             IEventListener<SubscribableFieldEvent<T>> listener =
-                _eventSystem.RegisterListenerWithTag(
+                EventSystem?.RegisterListenerWithTag(
                     (SubscribableFieldEvent<T> evt) =>
                     {
                         callback.Invoke(evt.LastValue, evt.Value);
@@ -99,7 +114,7 @@ namespace Core.Framework.Event.Property
         {
         }
 
-        public IntSubscribableField(EventSystem eventSystem, int initialValue) : base(eventSystem, initialValue)
+        public IntSubscribableField(EventSystem eventSystem, int initialValue) : base(initialValue, eventSystem)
         {
         }
     }
@@ -111,7 +126,7 @@ namespace Core.Framework.Event.Property
         {
         }
 
-        public FloatSubscribableField(EventSystem eventSystem, float initialValue) : base(eventSystem, initialValue)
+        public FloatSubscribableField(EventSystem eventSystem, float initialValue) : base(initialValue, eventSystem)
         {
         }
     }
@@ -123,7 +138,7 @@ namespace Core.Framework.Event.Property
         {
         }
 
-        public StringSubscribableField(EventSystem eventSystem, string initialValue) : base(eventSystem, initialValue)
+        public StringSubscribableField(EventSystem eventSystem, string initialValue) : base(initialValue, eventSystem)
         {
         }
     }
