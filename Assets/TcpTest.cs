@@ -12,7 +12,7 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
     public string ip;
     public int port;
 
-    private TcpClietTest _client;
+    private TcpClietForClient _client;
     private TcpServerTest _server;
     private MessageFactory _msgFactory;
 
@@ -24,14 +24,14 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
         _msgFactory.RegisterProtoBufMessage(1, typeof(UserLoginOn));
         _msgFactory.RegisterXMLStringMessage(2);
 
-        var clientFactory = new ClientForServerFactory();
+        var clientFactory = new ClientFactoryForServer();
         clientFactory.Factory = _msgFactory;
-        clientFactory.Pool = ContentBufferPool.Default;
+        clientFactory.Pool = BufferPool.Default;
         _server = new TcpServerTest(clientFactory, _msgFactory, ContentBufferPool.Default);
         clientFactory.Server = _server;
         _server.Start(IPAddress.Parse(ip), port);
 
-        _client = new TcpClietTest(_msgFactory, ContentBufferPool.Default);
+        _client = new TcpClietForClient(_msgFactory, BufferPool.Default);
     }
 
     public void Connect()
@@ -61,9 +61,9 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
 }
 
 
-public class TcpClietTest : TcpClientBase
+public class TcpClietForClient : TcpClientBase
 {
-    public TcpClietTest(MessageFactory factory, ContentBufferPool pool) : base(factory, pool)
+    public TcpClietForClient(MessageFactory factory, BufferPool pool) : base(factory, pool)
     {
     }
 
@@ -90,11 +90,11 @@ public class TcpClietTest : TcpClientBase
     }
 }
 
-public class TcpClientForServerTest : TcpClientBase
+public class TcpClientForServer : TcpClientBase
 {
     public TcpServerBase Server { get; }
 
-    public TcpClientForServerTest(TcpServerBase server, TcpClient client, MessageFactory factory, ContentBufferPool pool) 
+    public TcpClientForServer(TcpServerBase server, TcpClient client, MessageFactory factory, BufferPool pool) 
         : base(client, factory, pool)
     {
         Server = server;
@@ -132,14 +132,14 @@ public class TcpServerTest : TcpServerBase
     }
 }
 
-public class ClientForServerFactory : ITcpClientFactory
+public class ClientFactoryForServer : ITcpClientFactory
 {
     public TcpServerBase Server { get; set; }
     public MessageFactory Factory { get; set; }
-    public ContentBufferPool Pool { get; set; }
+    public BufferPool Pool { get; set; }
 
     public TcpClientBase Create(TcpClient client)
     {
-        return new TcpClientForServerTest(Server, client, Factory, Pool);
+        return new TcpClientForServer(Server, client, Factory, Pool);
     }
 }

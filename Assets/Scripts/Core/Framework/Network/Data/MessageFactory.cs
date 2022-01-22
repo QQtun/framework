@@ -388,19 +388,22 @@ namespace Core.Framework.Network.Data
             }
             else
             {
-                _tmpMS.Seek(0, SeekOrigin.Begin);
-                _tmpMS.Position = 0;
-                _tmpMS.SetLength(0);
-
-                foreach (var buf in buffers)
+                lock(_tmpMS)
                 {
-                    _tmpMS.Write(buf.Buffer, buf.ReadStartPosition, buf.ReceivedSize);
-                }
+                    _tmpMS.Seek(0, SeekOrigin.Begin);
+                    _tmpMS.Position = 0;
+                    _tmpMS.SetLength(0);
 
-                _tmpMS.Seek(0, SeekOrigin.Begin);
-                _tmpMS.Position = 0;
-                _tmpMS.SetLength(header.ContentSize);
-                return CreateMessage(header, _tmpMS);
+                    foreach (var buf in buffers)
+                    {
+                        _tmpMS.Write(buf.Buffer, buf.ReadStartPosition, buf.ReceivedSize);
+                    }
+
+                    _tmpMS.Seek(0, SeekOrigin.Begin);
+                    _tmpMS.Position = 0;
+                    _tmpMS.SetLength(header.ContentSize);
+                    return CreateMessage(header, _tmpMS);
+                }
             }
         }
     }

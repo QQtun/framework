@@ -127,5 +127,10 @@ public class SubscribableFieldDrawer : PropertyDrawer
                 valuePropertyInfo.SetValue(target, newValue);
             }
         }
+        else
+        {
+            // TODO
+            // Debug.LogWarning("sorry, not supported");
+        }
     }
 }

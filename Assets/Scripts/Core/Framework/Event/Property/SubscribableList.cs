@@ -34,6 +34,7 @@ namespace Core.Framework.Event.Property
         public int Count => mList.Count;
 
         public bool IsReadOnly => false;
+
         private EventSystem EventSystem => mEventSystem ?? EventSystem.Instance;
 
         public SubscribableList()

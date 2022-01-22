@@ -69,27 +69,27 @@ namespace Core.Framework.Network
         private SendBuffer _sendBuffer;
 
         public MessageFactory MessageFactory { get; }
-        public ContentBufferPool ContentBufferPool { get; }
+        private BufferPool BufferPool { get; }
         public EndPoint RemoteEndPoint => tcpClient?.Client.RemoteEndPoint ?? null;
         public bool Connected => tcpClient?.Connected ?? false;
 
-        protected TcpClientBase(MessageFactory factory, ContentBufferPool pool)
+        protected TcpClientBase(MessageFactory factory, BufferPool pool)
         {
             MessageFactory = factory;
-            ContentBufferPool = pool;
+            BufferPool = pool;
 
             _connectState = new ConnectState();
-            _headerBuffer = new HeaderBuffer();
+            //_headerBuffer = new HeaderBuffer();
             _contentState = new ContentState();
-            _footerBuffer = new FooterBuffer();
+            //_footerBuffer = new FooterBuffer();
             _recvMsgs = new List<Message>();
             _recvMsgsMainLoop = new List<Message>();
             _disconnetState = new DisconnetState();
             _sendState = new SendState();
-            _sendBuffer = new SendBuffer(pool.BufferSize + Header.HeaderSize + Footer.FooterSize);
+            //_sendBuffer = new SendBuffer(pool.BufferSize + Header.HeaderSize + Footer.FooterSize);
         }
 
-        protected TcpClientBase(TcpClient client, MessageFactory factory, ContentBufferPool pool)
+        protected TcpClientBase(TcpClient client, MessageFactory factory, BufferPool pool)
             : this(factory, pool)
         {
             tcpClient = client;
@@ -203,6 +203,8 @@ namespace Core.Framework.Network
             {
                 lock(_sendState)
                 {
+                    if (_sendBuffer == null)
+                        _sendBuffer = BufferPool.SendBufferPool.Alloc();
                     _sendBuffer.Reset();
                     int index = 0;
                     for(;index< _sendState.sendMsgs.Count;index++)
@@ -241,6 +243,8 @@ namespace Core.Framework.Network
                     }
                     else
                     {
+                        BufferPool.SendBufferPool.Dealloc(_sendBuffer);
+                        _sendBuffer = null;
                         _sendState.sending = false;
                     }
                 }
@@ -291,7 +295,10 @@ namespace Core.Framework.Network
 
         private void BegineReceiveHeader(bool reset, TcpState state)
         {
-            if(reset)
+            if (_headerBuffer == null)
+                _headerBuffer = BufferPool.HeaderBufferPool.Alloc();
+
+            if (reset)
             {
                 _headerBuffer.Reset();
             }
@@ -332,6 +339,8 @@ namespace Core.Framework.Network
 
                         BegineReceiveContent(state);
                     }
+                    BufferPool.HeaderBufferPool.Dealloc(_headerBuffer);
+                    _headerBuffer = null;
                 }
                 else
                 {
@@ -356,7 +365,7 @@ namespace Core.Framework.Network
                 if(_contentState.LastBuffer == null
                     || _contentState.LastBuffer.RemainingBufferSize == 0)
                 {
-                    _contentState.buffers.Add(ContentBufferPool.Alloc());
+                    _contentState.buffers.Add(BufferPool.ContentBufferPool.Alloc());
                 }
 
                 var recvSize = Math.Min(_contentState.LastBuffer.RemainingBufferSize,
@@ -385,13 +394,13 @@ namespace Core.Framework.Network
                     var msg = MessageFactory.CreateMessage(_contentState.header, _contentState.buffers);
                     state.msg = msg;
 
+                    BegineReceiveFooter(true, state);
+
                     foreach (var buf in _contentState.buffers)
                     {
-                        ContentBufferPool.Dealloc(buf);
+                        BufferPool.ContentBufferPool.Dealloc(buf);
                     }
                     _contentState.buffers.Clear();
-
-                    BegineReceiveFooter(true, state);
                 }
                 else
                 {
@@ -411,6 +420,9 @@ namespace Core.Framework.Network
 
         private void BegineReceiveFooter(bool reset, TcpState state)
         {
+            if (_footerBuffer == null)
+                _footerBuffer = BufferPool.FooterBufferPool.Alloc();
+
             if (reset)
             {
                 _footerBuffer.Reset();
@@ -447,6 +459,9 @@ namespace Core.Framework.Network
                     }
 
                     BegineReceiveHeader(true, state);
+
+                    BufferPool.FooterBufferPool.Dealloc(_footerBuffer);
+                    _footerBuffer = null;
                 }
                 else
                 {
