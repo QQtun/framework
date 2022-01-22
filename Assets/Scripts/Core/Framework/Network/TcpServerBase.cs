@@ -19,16 +19,16 @@ namespace Core.Framework.Network
 
         public ITcpClientFactory ClientFactory { get; }
         public MessageFactory MessageFactory { get; }
-        public ContentBufferPool ContentBufferPool { get; }
+        public BufferPool BufferPool { get; }
 
         private List<TcpClientBase> _clients;
         private List<TcpClientBase> _tmpList;
              
-        protected TcpServerBase(ITcpClientFactory clientFactory, MessageFactory factory, ContentBufferPool pool)
+        protected TcpServerBase(ITcpClientFactory clientFactory, MessageFactory factory, BufferPool pool)
         {
             ClientFactory = clientFactory;
             MessageFactory = factory;
-            ContentBufferPool = pool;
+            BufferPool = pool;
 
             _accepter = new TcpAccepter();
             _clients = new List<TcpClientBase>();
