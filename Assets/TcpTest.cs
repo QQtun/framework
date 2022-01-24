@@ -36,7 +36,7 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
         clientFactory.Server = _server;
         _server.Start(IPAddress.Parse(ip), port);
 
-        MessageHandlerUtil.Init(typeof(TcpClientForClient));
+        //MessageHandlerUtil.Init(typeof(TcpClientForClient));
         //_client = new TcpClientForClient(_msgFactory, BufferPool.Default);
     }
 
