@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
+using System.Threading;
 
 namespace Core.Framework.Network
 {
@@ -29,16 +31,16 @@ namespace Core.Framework.Network
             }
         }
 
-        private class DisconnetState
-        {
-            public bool invoke;
-            public DisconnectReason reason;
-        }
-
         private class SendState
         {
             public bool sending;
             public List<Message> sendMsgs = new List<Message>();
+        }
+
+        private class DisconnetState
+        {
+            public bool invoke;
+            public DisconnectReason reason;
         }
 
         private class ConnectState
@@ -48,30 +50,51 @@ namespace Core.Framework.Network
 
         private class TcpState
         {
+            public IPAddress ip;
+            public int port;
+
             public TcpClient tcpClient;
             public NetworkStream netStream;
+
+            public HeaderBuffer headerBuffer;
+            public ContentState contentState = new ContentState();
+            public FooterBuffer footerBuffer;
             public Message msg;
         }
 
-        protected TcpClient tcpClient;
-        protected NetworkStream netStream;
+        private TcpState _tcpState;
 
         private ConnectState _connectState;
-        private HeaderBuffer _headerBuffer;
-        private ContentState _contentState;
-        private FooterBuffer _footerBuffer;
 
         private List<Message> _recvMsgs;
         private List<Message> _recvMsgsMainLoop;
 
         private DisconnetState _disconnetState;
         private SendState _sendState;
-        private SendBuffer _sendBuffer;
 
         public MessageFactory MessageFactory { get; }
         private BufferPool BufferPool { get; }
-        public EndPoint RemoteEndPoint => tcpClient?.Client.RemoteEndPoint ?? null;
-        public bool Connected => tcpClient?.Connected ?? false;
+        public EndPoint RemoteEndPoint
+        {
+            get
+            {
+                lock(_tcpState)
+                {
+                    return _tcpState?.tcpClient?.Client.RemoteEndPoint;
+                }
+            }
+        }
+
+        public bool Connected
+        {
+            get
+            {
+                lock (_tcpState)
+                {
+                    return _tcpState?.tcpClient?.Connected ?? false;
+                }
+            }
+        }
 
         protected TcpClientBase(MessageFactory factory, BufferPool pool)
         {
@@ -79,46 +102,46 @@ namespace Core.Framework.Network
             BufferPool = pool;
 
             _connectState = new ConnectState();
-            //_headerBuffer = new HeaderBuffer();
-            _contentState = new ContentState();
-            //_footerBuffer = new FooterBuffer();
             _recvMsgs = new List<Message>();
             _recvMsgsMainLoop = new List<Message>();
             _disconnetState = new DisconnetState();
             _sendState = new SendState();
-            //_sendBuffer = new SendBuffer(pool.BufferSize + Header.HeaderSize + Footer.FooterSize);
+
+            _tcpState = new TcpState();
         }
 
         protected TcpClientBase(TcpClient client, MessageFactory factory, BufferPool pool)
             : this(factory, pool)
         {
-            tcpClient = client;
-            netStream = tcpClient.GetStream();
+            _tcpState = new TcpState();
+            _tcpState.tcpClient = client;
+            _tcpState.netStream = client.GetStream();
         }
 
         public bool Connect(IPAddress ip, int port)
         {
             try
             {
-                if (tcpClient != null)
+                lock (_tcpState)
                 {
-                    lock(tcpClient)
+                    if (_tcpState.tcpClient != null && _tcpState.tcpClient.Connected)
                     {
-                        if(tcpClient.Connected)
-                            Disconnect(DisconnectReason.User);
+                        Disconnect(DisconnectReason.User, true);
+                        lock (_connectState)
+                        {
+                            _connectState.invoke = false;
+                        }
                     }
                 }
 
-                lock(_connectState)
+                lock (_tcpState)
                 {
-                    _connectState.invoke = false;
+                    _tcpState.tcpClient = new TcpClient();
+                    _tcpState.ip = ip;
+                    _tcpState.port = port;
                 }
 
-                tcpClient = new TcpClient();
-                var state = new TcpState();
-                state.tcpClient = tcpClient;
-                tcpClient.BeginConnect(ip, port, OnConnectAsync, state);
-
+                ThreadPool.QueueUserWorkItem(ConnectMainLoopThreaded, _tcpState);
                 return true;
             }
             catch(Exception ex)
@@ -128,23 +151,51 @@ namespace Core.Framework.Network
             }
         }
 
-        public void Disconnect(DisconnectReason reason)
+        public void Disconnect(DisconnectReason reason, bool invokeNow = false)
         {
-            if (tcpClient != null)
+            lock (_tcpState)
             {
-                lock (tcpClient)
+                if (_tcpState.netStream != null)
                 {
-                    netStream.Close();
-                    netStream = null;
-                    tcpClient.Close();
-                    tcpClient = null;
+                    _tcpState.netStream.Close();
+                    _tcpState.netStream = null;
                 }
-                lock(_disconnetState)
+
+                if (_tcpState.tcpClient != null)
+                {
+                    _tcpState.tcpClient.Close();
+                    _tcpState.tcpClient = null;
+                }
+            }
+
+            lock(_sendState)
+            {
+                _sendState.sending = false;
+            }
+
+            if (invokeNow)
+            {
+                OnDisconnected(reason);
+            }
+            else
+            {
+                lock (_disconnetState)
                 {
                     _disconnetState.invoke = true;
                     _disconnetState.reason = reason;
                 }
             }
+        }
+
+        private void TryDisconnect(TcpState tcpState, TcpClient tcpClient, DisconnectReason reason, bool invokeNow = false)
+        {
+            var callDisconnect = false;
+            lock (tcpState)
+            {
+                callDisconnect = tcpState.tcpClient != null && tcpState.tcpClient == tcpClient;
+            }
+            if (callDisconnect)
+                Disconnect(reason, invokeNow);
         }
 
         public void MainLoop()
@@ -179,308 +230,405 @@ namespace Core.Framework.Network
             }
         }
 
-        public void Send(Message msg)
+        public bool Send(Message msg)
         {
+            if(!Connected)
+            {
+                Debug.Log("Can't Send When Disconnected");
+                return false;
+            }
+
             lock(_sendState)
             {
                 _sendState.sendMsgs.Add(msg);
                 if (!_sendState.sending)
-                    BegineSend();
+                {
+                    _sendState.sending = true;
+                    ThreadPool.QueueUserWorkItem(SendMainLoopThreaded, _tcpState);
+                }
             }
+            return true;
         }
 
         public void BegineReceive()
         {
-            var state = new TcpState();
-            state.tcpClient = tcpClient;
-            state.netStream = netStream;
-            BegineReceiveHeader(true, state);
+            ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, _tcpState);
         }
 
-        private void BegineSend()
+        private void ConnectMainLoopThreaded(object state)
         {
+            TcpState tcpState = state as TcpState;
+            TcpClient tcpClient;
+            lock (tcpState)
+            {
+                if (tcpState.tcpClient == null)
+                    return;
+                tcpClient = tcpState.tcpClient;
+            }
+
             try
             {
-                lock(_sendState)
+                lock (tcpState)
                 {
-                    if (_sendBuffer == null)
-                        _sendBuffer = BufferPool.SendBufferPool.Alloc();
-                    _sendBuffer.Reset();
-                    int index = 0;
-                    for(;index< _sendState.sendMsgs.Count;index++)
-                    {
-                        var msg = _sendState.sendMsgs[index];
-                        if (!_sendBuffer.WriteToBuffer(msg))
-                        {
-                            break;
-                        }
-                    }
-                    _sendState.sendMsgs.RemoveRange(0, index);
-                    _sendState.sending = true;
-                }
+                    tcpClient.Connect(tcpState.ip, tcpState.port);
+                    tcpState.netStream = tcpClient.GetStream();
 
-                netStream.BeginWrite(_sendBuffer.Buffer, _sendBuffer.SentSize, _sendBuffer.UnsendSize, OnSentAsync, netStream);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
-            }
-        }
-
-        private void OnSentAsync(IAsyncResult ar)
-        {
-            try
-            {
-                var netStream = (NetworkStream)ar.AsyncState;
-                netStream.EndWrite(ar);
-
-                lock (_sendState)
-                {
-                    if (_sendState.sendMsgs.Count > 0)
-                    {
-                        BegineSend();
-                    }
-                    else
-                    {
-                        BufferPool.SendBufferPool.Dealloc(_sendBuffer);
-                        _sendBuffer = null;
-                        _sendState.sending = false;
-                    }
-                }
-            }
-            catch (ObjectDisposedException ex)
-            {
-                Debug.Log(ex);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
-            }
-        }
-
-        private void OnConnectAsync(IAsyncResult ar)
-        {
-            try
-            {
-                var state = (TcpState) ar.AsyncState;
-                state.tcpClient.EndConnect(ar);
-
-                if(state.tcpClient.Connected)
-                {
-                    netStream = state.tcpClient.GetStream();
-                    state.netStream = netStream;
                     lock (_connectState)
                     {
                         _connectState.invoke = true;
                     }
-                    BegineReceiveHeader(true, state);
                 }
-                else
-                {
-                    Disconnect(DisconnectReason.Network);
-                }
+                ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
             }
-            catch (ObjectDisposedException ex)
-            {
-                Debug.Log(ex);
-            }
-            catch (Exception ex)
+            catch(Exception ex)
             {
                 Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
+                TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
             }
         }
 
-        private void BegineReceiveHeader(bool reset, TcpState state)
+        private void ReceiveHeaderMainLoopThreaded(object state)
         {
-            if (_headerBuffer == null)
-                _headerBuffer = BufferPool.HeaderBufferPool.Alloc();
-
-            if (reset)
+            TcpState tcpState = state as TcpState;
+            TcpClient tcpClient;
+            lock(tcpState)
             {
-                _headerBuffer.Reset();
+                if (tcpState.tcpClient == null)
+                    return;
+                tcpClient = tcpState.tcpClient;
             }
 
             try
             {
-                netStream.BeginRead(_headerBuffer.Buffer, _headerBuffer.WriteStartPosition, _headerBuffer.RemainingBufferSize, OnReceiveHeaderAsync, state);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
-            }
-        }
-
-        private void OnReceiveHeaderAsync(IAsyncResult ar)
-        {
-            try
-            {
-                var state = (TcpState)ar.AsyncState;
-                var netStream = state.netStream;
-                var readSize = netStream.EndRead(ar);
-                _headerBuffer.IncreaseReceivedSize(readSize);
-
-                if (_headerBuffer.IsEnough)
+                lock (tcpState)
                 {
-                    var header = _headerBuffer.CreateHeader();
-                    if(header.ContentSize == 0)
+
+                    if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
                     {
-                        var msg = MessageFactory.CreateMessage(header, ZeroBuffer, 0);
-                        state.msg = msg;
-                        BegineReceiveFooter(true, state);
+                        if (tcpState.headerBuffer == null)
+                            tcpState.headerBuffer = BufferPool.HeaderBufferPool.Alloc();
+
+                        var readCount = Math.Min(tcpClient.Available, tcpState.headerBuffer.RemainingBufferSize);
+
+                        var realReadCount = tcpState.netStream.Read(
+                            tcpState.headerBuffer.Buffer, tcpState.headerBuffer.WriteStartPosition, readCount);
+                        if (realReadCount == 0)
+                        {
+                            Disconnect(DisconnectReason.Remote);
+                            return;
+                        }
+
+                        tcpState.headerBuffer.IncreaseReceivedSize(realReadCount);
+                        if (tcpState.headerBuffer.IsEnough)
+                        {
+                            var header = tcpState.headerBuffer.CreateHeader();
+                            BufferPool.HeaderBufferPool.Dealloc(tcpState.headerBuffer);
+                            tcpState.headerBuffer = null;
+                            if (header.ContentSize == 0)
+                            {
+                                var msg = MessageFactory.CreateMessage(header, ZeroBuffer, 0);
+                                tcpState.msg = msg;
+                                ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
+                            }
+                            else
+                            {
+                                tcpState.contentState.header = header;
+                                tcpState.contentState.receiveSize = 0;
+
+                                ThreadPool.QueueUserWorkItem(ReceiveContentMainLoopThreaded, state);
+                            }
+                        }
+                        else
+                        {
+                            ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
+                        }
                     }
                     else
                     {
-                        _contentState.header = header;
-                        _contentState.receiveSize = 0;
-
-                        BegineReceiveContent(state);
+                        ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
                     }
-                    BufferPool.HeaderBufferPool.Dealloc(_headerBuffer);
-                    _headerBuffer = null;
                 }
-                else
-                {
-                    BegineReceiveHeader(false, state);
-                }
-            }
-            catch(ObjectDisposedException ex)
-            {
-                Debug.Log(ex);
             }
             catch (Exception ex)
             {
                 Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
+                TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
             }
         }
 
-        private void BegineReceiveContent(TcpState state)
+        private void ReceiveContentMainLoopThreaded(object state)
         {
+            TcpState tcpState = state as TcpState;
+            TcpClient tcpClient;
+            lock (tcpState)
+            {
+                if (tcpState.tcpClient == null)
+                    return;
+                tcpClient = tcpState.tcpClient;
+            }
+
             try
             {
-                if(_contentState.LastBuffer == null
-                    || _contentState.LastBuffer.RemainingBufferSize == 0)
+                lock (tcpState)
                 {
-                    _contentState.buffers.Add(BufferPool.ContentBufferPool.Alloc());
-                }
-
-                var recvSize = Math.Min(_contentState.LastBuffer.RemainingBufferSize,
-                    _contentState.header.ContentSize - _contentState.receiveSize);
-                netStream.BeginRead(_contentState.LastBuffer.Buffer, _contentState.LastBuffer.WriteStartPosition, recvSize, OnReceiveContentAsync, state);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
-            }
-        }
-
-        private void OnReceiveContentAsync(IAsyncResult ar)
-        {
-            try
-            {
-                var state = (TcpState)ar.AsyncState;
-                var netStream = state.netStream;
-                var readSize = netStream.EndRead(ar);
-                _contentState.LastBuffer.IncreaseReceivedSize(readSize);
-                _contentState.receiveSize += readSize;
-
-                if (_contentState.header.ContentSize == _contentState.receiveSize)
-                {
-                    var msg = MessageFactory.CreateMessage(_contentState.header, _contentState.buffers);
-                    state.msg = msg;
-
-                    BegineReceiveFooter(true, state);
-
-                    foreach (var buf in _contentState.buffers)
+                    if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
                     {
-                        BufferPool.ContentBufferPool.Dealloc(buf);
+                        if (tcpState.contentState.LastBuffer == null
+                            || tcpState.contentState.LastBuffer.RemainingBufferSize == 0)
+                        {
+                            tcpState.contentState.buffers.Add(BufferPool.ContentBufferPool.Alloc());
+                        }
+
+                        var recvSize = Math.Min(tcpState.contentState.LastBuffer.RemainingBufferSize,
+                            tcpState.contentState.header.ContentSize - tcpState.contentState.receiveSize);
+                        recvSize = Math.Min(tcpClient.Available, recvSize);
+                        
+                        var realReadCount = tcpState.netStream.Read(
+                            tcpState.contentState.LastBuffer.Buffer, tcpState.contentState.LastBuffer.WriteStartPosition, recvSize);
+                        if (realReadCount == 0)
+                        {
+                            Disconnect(DisconnectReason.Remote);
+                            return;
+                        }
+
+                        tcpState.contentState.LastBuffer.IncreaseReceivedSize(realReadCount);
+                        tcpState.contentState.receiveSize += realReadCount;
+
+                        if (tcpState.contentState.header.ContentSize == tcpState.contentState.receiveSize)
+                        {
+                            var msg = MessageFactory.CreateMessage(tcpState.contentState.header, tcpState.contentState.buffers);
+                            tcpState.msg = msg;
+
+                            foreach (var buf in tcpState.contentState.buffers)
+                            {
+                                BufferPool.ContentBufferPool.Dealloc(buf);
+                            }
+                            tcpState.contentState.buffers.Clear();
+
+                            ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
+                        }
+                        else
+                        {
+                            ThreadPool.QueueUserWorkItem(ReceiveContentMainLoopThreaded, state);
+                        }
                     }
-                    _contentState.buffers.Clear();
-                }
-                else
-                {
-                    BegineReceiveContent(state);
-                }
-            }
-            catch (ObjectDisposedException ex)
-            {
-                Debug.Log(ex);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
-            }
-        }
-
-        private void BegineReceiveFooter(bool reset, TcpState state)
-        {
-            if (_footerBuffer == null)
-                _footerBuffer = BufferPool.FooterBufferPool.Alloc();
-
-            if (reset)
-            {
-                _footerBuffer.Reset();
-            }
-
-            try
-            {
-                netStream.BeginRead(_footerBuffer.Buffer, _footerBuffer.WriteStartPosition, _footerBuffer.RemainingBufferSize, OnReceiveFooterAsync, state);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
-            }
-        }
-
-        private void OnReceiveFooterAsync(IAsyncResult ar)
-        {
-            try
-            {
-                var state = (TcpState)ar.AsyncState;
-                var netStream = state.netStream;
-                var msg = state.msg;
-                var readSize = netStream.EndRead(ar);
-                _footerBuffer.IncreaseReceivedSize(readSize);
-
-                if (_footerBuffer.IsEnough)
-                {
-                    var footer = _footerBuffer.CreateFooter();
-                    msg.Footer = footer;
-                    lock (_recvMsgs)
+                    else
                     {
-                        _recvMsgs.Add(msg);
+                        ThreadPool.QueueUserWorkItem(ReceiveContentMainLoopThreaded, state);
                     }
-
-                    BegineReceiveHeader(true, state);
-
-                    BufferPool.FooterBufferPool.Dealloc(_footerBuffer);
-                    _footerBuffer = null;
                 }
-                else
-                {
-                    BegineReceiveFooter(false, state);
-                }
-            }
-            catch (ObjectDisposedException ex)
-            {
-                Debug.Log(ex);
             }
             catch (Exception ex)
             {
                 Debug.LogError(ex);
-                Disconnect(DisconnectReason.Network);
+                TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
+            }
+        }
+
+        private void ReceiveFooterMainLoopThreaded(object state)
+        {
+            TcpState tcpState = state as TcpState;
+            TcpClient tcpClient;
+            lock (tcpState)
+            {
+                if (tcpState.tcpClient == null)
+                    return;
+                tcpClient = tcpState.tcpClient;
+            }
+
+            try
+            {
+                lock (tcpState)
+                {
+                    if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
+                    {
+                        if (tcpState.footerBuffer == null)
+                            tcpState.footerBuffer = BufferPool.FooterBufferPool.Alloc();
+
+                        var readCount = Math.Min(tcpClient.Available, tcpState.footerBuffer.RemainingBufferSize);
+
+                        var realReadCount = tcpState.netStream.Read(
+                            tcpState.footerBuffer.Buffer, tcpState.footerBuffer.WriteStartPosition, readCount);
+                        if (realReadCount == 0)
+                        {
+                            Disconnect(DisconnectReason.Remote);
+                            return;
+                        }
+
+                        tcpState.footerBuffer.IncreaseReceivedSize(realReadCount);
+
+                        if (tcpState.footerBuffer.IsEnough)
+                        {
+                            var footer = tcpState.footerBuffer.CreateFooter();
+                            tcpState.msg.Footer = footer;
+                            lock (_recvMsgs)
+                            {
+                                _recvMsgs.Add(tcpState.msg);
+                            }
+
+                            BufferPool.FooterBufferPool.Dealloc(tcpState.footerBuffer);
+                            tcpState.footerBuffer = null;
+
+                            ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
+                        }
+                        else
+                        {
+                            ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
+                        }
+                    }
+                    else
+                    {
+                        ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(ex);
+                TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
+            }
+        }
+
+        private void SendMainLoopThreaded(object state)
+        {
+            TcpState tcpState = state as TcpState;
+            TcpClient tcpClient;
+            NetworkStream netStream;
+            lock (tcpState)
+            {
+                if (tcpState.tcpClient == null)
+                    return;
+                if (tcpState.netStream == null)
+                    return;
+                tcpClient = tcpState.tcpClient;
+                netStream = tcpState.netStream;
+            }
+
+            try
+            {
+                if (tcpClient.Client.Poll(0, SelectMode.SelectWrite))
+                {
+                    var sendBuffer = BufferPool.SendBufferPool.Alloc();
+
+                    lock (_sendState)
+                    {
+                        int index = 0;
+                        for (; index < _sendState.sendMsgs.Count; index++)
+                        {
+                            var msg = _sendState.sendMsgs[index];
+                            if (!sendBuffer.WriteToBuffer(msg))
+                            {
+                                break;
+                            }
+                        }
+                        _sendState.sendMsgs.RemoveRange(0, index);
+                    }
+
+                    netStream.Write(sendBuffer.Buffer, sendBuffer.SentSize, sendBuffer.UnsendSize);
+
+                    BufferPool.SendBufferPool.Dealloc(sendBuffer);
+                    sendBuffer = null;
+
+                    lock (_sendState)
+                    {
+                        if (_sendState.sendMsgs.Count > 0)
+                        {
+                            ThreadPool.QueueUserWorkItem(SendMainLoopThreaded, state);
+                        }
+                        else
+                        {
+                            _sendState.sending = false;
+                        }
+                    }
+                }
+                else
+                {
+                    ThreadPool.QueueUserWorkItem(SendMainLoopThreaded, state);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(ex);
+                lock (_sendState)
+                {
+                    _sendState.sending = false;
+                }
+                TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
             }
         }
 
         protected abstract void OnConnected();
         protected abstract void OnReceiveMessage(Message msg);
         protected abstract void OnDisconnected(DisconnectReason reason);
+    }
+
+    public class MessageHandlerAttribute : Attribute
+    {
+        public int MessageId { get; }
+
+        public MessageHandlerAttribute(int messageID)
+        {
+            MessageId = messageID;
+        }
+    }
+
+    public static class MessageHandlerUtil
+    {
+        private static Dictionary<Type, Dictionary<Type, MethodInfo>> s_typeToHandlersDic 
+            = new Dictionary<Type, Dictionary<Type, MethodInfo>>();
+
+        public static void Init(Type type)
+        {
+            if (type == null)
+                return;
+
+            var handlers = new Dictionary<Type, MethodInfo>();
+            foreach (var method in type.GetMethods())
+            {
+                var attr = method.GetCustomAttribute<MessageHandlerAttribute>();
+                if (attr != null)
+                {
+                    foreach (var parameter in method.GetParameters())
+                    {
+                        if (parameter.ParameterType.IsSubclassOf(typeof(Google.Protobuf.IMessage)))
+                        {
+                            if(!handlers.ContainsKey(parameter.ParameterType))
+                            {
+                                handlers.Add(parameter.ParameterType, method);
+                            }
+                            else
+                            {
+                                Debug.LogError($"duplicate message handler method={method.Name} messageType={parameter.ParameterType.Name}!!");
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            if (handlers.Count > 0)
+            {
+                lock (s_typeToHandlersDic)
+                {
+                    s_typeToHandlersDic[type] = handlers;
+                }
+            }
+        }
+
+        public static MethodInfo GetHandlerMethod(Type handlerType, Type messageType)
+        {
+            Dictionary<Type, MethodInfo> handlerDic;
+            lock(s_typeToHandlersDic)
+            {
+                if (!s_typeToHandlersDic.TryGetValue(handlerType, out handlerDic))
+                {
+                    return null;
+                }
+            }
+            if (!handlerDic.TryGetValue(messageType, out var m))
+            {
+                return null;
+            }
+            return m;
+        }
     }
 }

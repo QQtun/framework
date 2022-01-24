@@ -14,6 +14,7 @@ namespace Core.Framework.Network
     {
         None,
         User,
+        Remote,
         ForGameServer,
         Network,
         TimeOut,

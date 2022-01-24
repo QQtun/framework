@@ -3,6 +3,8 @@ using Core.Framework.Network.Buffers;
 using Core.Framework.Network.Data;
 using Core.Framework.Utility;
 using P5.Protobuf;
+using Sirenix.OdinInspector;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using UnityEngine;
@@ -12,13 +14,18 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
     public string ip;
     public int port;
 
-    private TcpClietForClient _client;
+    private List<TcpClientForClient> _clients = new List<TcpClientForClient>();
     private TcpServerTest _server;
     private MessageFactory _msgFactory;
 
     void Start()
     {
         MessageNameConverter.Converter = this;
+
+        System.Threading.ThreadPool.GetMinThreads(out var workerThreads, out var completThreads);
+        Debug.Log($"min workerThreads={workerThreads} completThreads={completThreads}");
+        System.Threading.ThreadPool.GetMaxThreads(out workerThreads, out completThreads);
+        Debug.Log($"max workerThreads={workerThreads} completThreads={completThreads}");
 
         _msgFactory = new MessageFactory();
         _msgFactory.RegisterProtoBufMessage(1, typeof(UserLoginOn));
@@ -29,27 +36,37 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
         clientFactory.Server = _server;
         _server.Start(IPAddress.Parse(ip), port);
 
-        _client = new TcpClietForClient(_msgFactory, BufferPool.Default);
+        MessageHandlerUtil.Init(typeof(TcpClientForClient));
+        //_client = new TcpClientForClient(_msgFactory, BufferPool.Default);
     }
 
+    [Button]
     public void Connect()
     {
-        if (_client != null)
-            _client.Disconnect(DisconnectReason.User);
-        _client.Connect(IPAddress.Parse(ip), port);
+        var client = new TcpClientForClient(_msgFactory, BufferPool.Default);
+        _clients.Add(client);
+        client.Connect(IPAddress.Parse(ip), port);
     }
 
     // Update is called once per frame
-    void Update()
+    private void Update()
     {
         _server?.MainLoop();
-        _client?.MainLoop();
+        foreach(var client in _clients)
+        {
+            client?.MainLoop();
+        }
     }
 
     private void OnDestroy()
     {
         _server?.Stop(DisconnectReason.User);
-        _client?.Disconnect(DisconnectReason.User);
+
+        foreach (var client in _clients)
+        {
+            client?.Disconnect(DisconnectReason.User, true);
+        }
+        _clients.Clear();
     }
 
     public string Convert(int messageId)
@@ -59,15 +76,15 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
 }
 
 
-public class TcpClietForClient : TcpClientBase
+public class TcpClientForClient : TcpClientBase
 {
-    public TcpClietForClient(MessageFactory factory, BufferPool pool) : base(factory, pool)
+    public TcpClientForClient(MessageFactory factory, BufferPool pool) : base(factory, pool)
     {
     }
 
     protected override void OnConnected()
     {
-        Debug.Log("TcpClietTest OnConnected");
+        Debug.Log("TcpClientForClient OnConnected");
 
         var content = new UserLoginOn();
         content.UserName = "abc";
@@ -81,18 +98,26 @@ public class TcpClietForClient : TcpClientBase
 
     protected override void OnDisconnected(DisconnectReason reason)
     {
+        Debug.Log("TcpClientForClient OnDisconnected");
     }
+
+    private static int count = 0;
 
     protected override void OnReceiveMessage(Message msg)
     {
+        Debug.Log("TcpClientForClient OnReceiveMessage");
+
+        var content = new UserLoginOn();
+        content.UserName = "abc" + count++;
+        Send(GoogleProtocolBufMessage.Allocate(1, content));
     }
 }
 
 public class TcpClientForServer : TcpClientBase
 {
-    public TcpServerBase Server { get; }
+    public TcpServerBase<TcpClientForServer> Server { get; }
 
-    public TcpClientForServer(TcpServerBase server, TcpClient client) 
+    public TcpClientForServer(TcpServerBase<TcpClientForServer> server, TcpClient client) 
         : base(client, server.MessageFactory, server.BufferPool)
     {
         Server = server;
@@ -100,19 +125,27 @@ public class TcpClientForServer : TcpClientBase
 
     protected override void OnConnected()
     {
-        Debug.LogError("TcpClientForServerTest OnConnected");
+        Debug.LogError("TcpClientForServer OnConnected");
     }
 
     protected override void OnDisconnected(DisconnectReason reason)
     {
+        Debug.Log("TcpClientForServer OnDisconnected");
     }
+
+    private static int count = 0;
 
     protected override void OnReceiveMessage(Message msg)
     {
-        if(msg.MessageId == 1)
+        Debug.Log("TcpClientForServer OnReceiveMessage");
+        if (msg.MessageId == 1)
         {
             var data = msg.GetData<UserLoginOn>();
             Debug.Log($"UserName={data.UserName}");
+
+            var content = new UserLoginOn();
+            content.UserName = "xyz" + count++;
+            Send(GoogleProtocolBufMessage.Allocate(1, content));
         }
         if(msg.MessageId == 2)
         {
@@ -122,19 +155,19 @@ public class TcpClientForServer : TcpClientBase
     }
 }
 
-public class TcpServerTest : TcpServerBase
+public class TcpServerTest : TcpServerBase<TcpClientForServer>
 {
-    public TcpServerTest(ITcpClientFactory clientFactory, MessageFactory factory, BufferPool pool)
+    public TcpServerTest(ITcpClientFactory<TcpClientForServer> clientFactory, MessageFactory factory, BufferPool pool)
         : base(clientFactory, factory, pool)
     {
     }
 }
 
-public class ClientFactoryForServer : ITcpClientFactory
+public class ClientFactoryForServer : ITcpClientFactory<TcpClientForServer>
 {
-    public TcpServerBase Server { get; set; }
+    public TcpServerBase<TcpClientForServer> Server { get; set; }
 
-    public TcpClientBase Create(TcpClient client)
+    public TcpClientForServer Create(TcpClient client)
     {
         return new TcpClientForServer(Server, client);
     }

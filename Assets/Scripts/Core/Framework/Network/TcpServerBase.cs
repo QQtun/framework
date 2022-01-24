@@ -8,30 +8,29 @@ using System.Net.Sockets;
 
 namespace Core.Framework.Network
 {
-    public interface ITcpClientFactory
+    public interface ITcpClientFactory<T>
+        where T : TcpClientBase
     {
-        TcpClientBase Create(TcpClient client);
+        T Create(TcpClient client);
     }
 
-    public class TcpServerBase
+    public abstract class TcpServerBase
     {
         private TcpAccepter _accepter;
 
-        public ITcpClientFactory ClientFactory { get; }
         public MessageFactory MessageFactory { get; }
         public BufferPool BufferPool { get; }
 
-        private List<TcpClientBase> _clients;
         private List<TcpClientBase> _tmpList;
-             
-        protected TcpServerBase(ITcpClientFactory clientFactory, MessageFactory factory, BufferPool pool)
+        protected List<TcpClientBase> clients;
+
+        protected TcpServerBase(MessageFactory factory, BufferPool pool)
         {
-            ClientFactory = clientFactory;
             MessageFactory = factory;
             BufferPool = pool;
 
             _accepter = new TcpAccepter();
-            _clients = new List<TcpClientBase>();
+            clients = new List<TcpClientBase>();
             _tmpList = new List<TcpClientBase>();
         }
 
@@ -42,7 +41,7 @@ namespace Core.Framework.Network
                 Stop(DisconnectReason.User);
             }
 
-            _clients.Clear();
+            clients.Clear();
             _tmpList.Clear();
             _accepter = new TcpAccepter();
             _accepter.OnAccept += CreateClient;
@@ -51,14 +50,14 @@ namespace Core.Framework.Network
 
         public void Stop(DisconnectReason reason)
         {
-            foreach(var client in _clients)
+            foreach(var client in clients)
             {
-                client.Disconnect(reason);
+                client.Disconnect(reason, true);
             }
 
-            _clients.Clear();
+            clients.Clear();
             _tmpList.Clear();
-            _accepter?.Stop();
+            _accepter?.Stop(true);
         }
 
         public void MainLoop()
@@ -66,21 +65,36 @@ namespace Core.Framework.Network
             _accepter?.MainLoop();
 
             _tmpList.Clear();
-            foreach(var client in _clients)
+            foreach(var client in clients)
             {
                 client.MainLoop();
                 if(client.Connected)
                     _tmpList.Add(client);
             }
-            var tmp = _clients;
-            _clients = _tmpList;
+            var tmp = clients;
+            clients = _tmpList;
             _tmpList = tmp;
         }
 
-        private void CreateClient(TcpClient newClient)
+        protected abstract void CreateClient(TcpClient newClient);
+    }
+
+
+    public class TcpServerBase<T> : TcpServerBase
+        where T : TcpClientBase
+    {
+        public ITcpClientFactory<T> ClientFactory { get; }
+
+        protected TcpServerBase(ITcpClientFactory<T> clientFactory, MessageFactory factory, BufferPool pool)
+            : base(factory, pool)
+        {
+            ClientFactory = clientFactory;
+        }
+
+        protected override void CreateClient(TcpClient newClient)
         {
             var newClientBase = ClientFactory.Create(newClient);
-            _clients.Add(newClientBase);
+            clients.Add(newClientBase);
             newClientBase.BegineReceive();
         }
     }

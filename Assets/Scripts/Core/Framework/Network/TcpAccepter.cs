@@ -3,29 +3,51 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace Core.Framework.Network
 {
     public class TcpAccepter
     {
-        private TcpListener _tcpLitener;
+        private class TcpObject
+        {
+            public bool accepting;
+            public TcpListener tcpLitener;
+        }
+
+        private class StopState
+        {
+            public bool invoke;
+        }
+
+        private TcpObject _tcpObject = new TcpObject();
+        private StopState _stopState = new StopState();
         private Queue<TcpClient> _newClients = new Queue<TcpClient>();
 
         public event Action<TcpClient> OnAccept;
+        public event Action OnStop;
 
         public void Start(IPAddress ip, int port)
         {
             try
             {
-                if (_tcpLitener != null)
+                lock(_tcpObject)
                 {
-                    Stop();
+                    Stop(true);
                 }
 
-                _newClients.Clear();
-                _tcpLitener = new TcpListener(ip, port);
-                _tcpLitener.Start();
-                _tcpLitener.BeginAcceptTcpClient(OnAcceptTcpClientAsync, _tcpLitener);
+                lock(_newClients)
+                {
+                    _newClients.Clear();
+                }
+
+                lock (_tcpObject)
+                {
+                    _tcpObject.tcpLitener = new TcpListener(ip, port);
+                    _tcpObject.tcpLitener.Start();
+
+                    ThreadPool.QueueUserWorkItem(AcceptTcpClientThreaded, _tcpObject);
+                }
             }
             catch (Exception ex)
             {
@@ -33,51 +55,103 @@ namespace Core.Framework.Network
             }
         }
 
-        public void Stop()
+        public void Stop(bool invokeNow = false)
         {
-            if (_tcpLitener != null)
+            lock(_tcpObject)
             {
-                lock(_tcpLitener)
+                if (_tcpObject.tcpLitener == null)
                 {
-                    _tcpLitener.Stop();
-                    _tcpLitener = null;
+                    return;
+                }
+                _tcpObject.tcpLitener.Stop();
+                _tcpObject.tcpLitener = null;
+                _tcpObject.accepting = false;
+            }
+
+            lock (_newClients)
+            {
+                _newClients.Clear();
+            }
+
+            if (invokeNow)
+            {
+                OnStop?.Invoke();
+            }
+            else
+            {
+                lock(_stopState)
+                {
+                    _stopState.invoke = true;
                 }
             }
         }
 
         public void MainLoop()
         {
-            lock(_newClients)
+            lock (_newClients)
             {
                 while (_newClients.Count > 0)
                 {
                     OnAccept?.Invoke(_newClients.Dequeue());
                 }
             }
-        }
-
-        private void OnAcceptTcpClientAsync(IAsyncResult ar)
-        {
-            try
+            lock (_stopState)
             {
-                var tcpLitener = (TcpListener)ar.AsyncState;
-                var newTcpClient = tcpLitener.EndAcceptTcpClient(ar);
-                tcpLitener.BeginAcceptTcpClient(OnAcceptTcpClientAsync, tcpLitener);
-
-                lock(_newClients)
+                if(_stopState.invoke)
                 {
-                    _newClients.Enqueue(newTcpClient);
+                    _stopState.invoke = false;
+                    OnStop?.Invoke();
                 }
             }
-            catch (ObjectDisposedException ex)
+        }
+
+        private void AcceptTcpClientThreaded(object state)
+        {
+            TcpObject tcpObject = state as TcpObject;
+            TcpListener tcpListener;
+            lock (tcpObject)
             {
-                Debug.Log(ex);
+                tcpListener = tcpObject.tcpLitener;
+                if (tcpListener == null)
+                    return;
+                if (tcpObject.accepting)
+                    return;
+
+                tcpObject.accepting = true;
+            }
+
+            try
+            {
+                while(true)
+                {
+                    var newTcpClient = tcpListener.AcceptTcpClient();
+
+                    lock (_newClients)
+                    {
+                        _newClients.Enqueue(newTcpClient);
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Debug.LogError(ex);
-                Stop();
+                lock (tcpObject)
+                {
+                    tcpObject.accepting = false;
+                }
+                TryStop(tcpObject, tcpListener);
             }
+        }
+
+        private void TryStop(TcpObject tcpObject, TcpListener tcpClient)
+        {
+            var needStop = false;
+            lock (tcpObject)
+            {
+                needStop = tcpObject.tcpLitener != null && tcpObject.tcpLitener == tcpClient;
+            }
+            if (needStop)
+                Stop();
         }
     }
 }
