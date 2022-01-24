@@ -72,6 +72,8 @@ namespace Core.Framework.Network
         private DisconnetState _disconnetState;
         private SendState _sendState;
 
+        private object[] _onReceObjectArrayCache = new object[1];
+
         public MessageFactory MessageFactory { get; }
         private BufferPool BufferPool { get; }
         public EndPoint RemoteEndPoint
@@ -108,6 +110,8 @@ namespace Core.Framework.Network
             _sendState = new SendState();
 
             _tcpState = new TcpState();
+
+            MessageHandlerUtil.Init(GetType());
         }
 
         protected TcpClientBase(TcpClient client, MessageFactory factory, BufferPool pool)
@@ -557,8 +561,17 @@ namespace Core.Framework.Network
             }
         }
 
+        protected virtual void OnReceiveMessage(Message msg)
+        {
+            var handleInfo = MessageHandlerUtil.GetHandlerMethod(GetType(), msg.MessageId);
+            if (handleInfo.HasValue)
+            {
+                _onReceObjectArrayCache[0] = msg.GetData(handleInfo.Value.paramType);
+                handleInfo.Value.methodInfo.Invoke(this, _onReceObjectArrayCache);
+            }
+        }
+
         protected abstract void OnConnected();
-        protected abstract void OnReceiveMessage(Message msg);
         protected abstract void OnDisconnected(DisconnectReason reason);
     }
 
@@ -574,33 +587,42 @@ namespace Core.Framework.Network
 
     public static class MessageHandlerUtil
     {
-        private static Dictionary<Type, Dictionary<Type, MethodInfo>> s_typeToHandlersDic 
-            = new Dictionary<Type, Dictionary<Type, MethodInfo>>();
+        public struct HandlerInfo
+        {
+            public MethodInfo methodInfo;
+            public Type paramType;
+        }
+
+        private static Dictionary<Type, Dictionary<int, HandlerInfo>> s_typeToHandlersDic 
+            = new Dictionary<Type, Dictionary<int, HandlerInfo>>();
 
         public static void Init(Type type)
         {
             if (type == null)
                 return;
+            if (s_typeToHandlersDic.ContainsKey(type))
+                return;
 
-            var handlers = new Dictionary<Type, MethodInfo>();
-            foreach (var method in type.GetMethods())
+            var handlers = new Dictionary<int, HandlerInfo>();
+            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 var attr = method.GetCustomAttribute<MessageHandlerAttribute>();
                 if (attr != null)
                 {
-                    foreach (var parameter in method.GetParameters())
+                    if(handlers.TryGetValue(attr.MessageId, out var _))
                     {
-                        if (parameter.ParameterType.IsSubclassOf(typeof(Google.Protobuf.IMessage)))
+                        Debug.LogError($"duplicate message handler method={method.Name} MessageId={attr.MessageId}!!");
+                    }
+                    else
+                    {
+                        var paramArray = method.GetParameters();
+                        if (paramArray.Length == 1)
                         {
-                            if(!handlers.ContainsKey(parameter.ParameterType))
+                            var parameter = paramArray[0];
+                            if (typeof(Google.Protobuf.IMessage).IsAssignableFrom(parameter.ParameterType))
                             {
-                                handlers.Add(parameter.ParameterType, method);
+                                handlers.Add(attr.MessageId, new HandlerInfo() { methodInfo= method, paramType = parameter.ParameterType });
                             }
-                            else
-                            {
-                                Debug.LogError($"duplicate message handler method={method.Name} messageType={parameter.ParameterType.Name}!!");
-                            }
-                            break;
                         }
                     }
                 }
@@ -614,9 +636,9 @@ namespace Core.Framework.Network
             }
         }
 
-        public static MethodInfo GetHandlerMethod(Type handlerType, Type messageType)
+        public static HandlerInfo? GetHandlerMethod(Type handlerType, int messageId)
         {
-            Dictionary<Type, MethodInfo> handlerDic;
+            Dictionary<int, HandlerInfo> handlerDic;
             lock(s_typeToHandlersDic)
             {
                 if (!s_typeToHandlersDic.TryGetValue(handlerType, out handlerDic))
@@ -624,7 +646,7 @@ namespace Core.Framework.Network
                     return null;
                 }
             }
-            if (!handlerDic.TryGetValue(messageType, out var m))
+            if (!handlerDic.TryGetValue(messageId, out var m))
             {
                 return null;
             }

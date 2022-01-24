@@ -48,6 +48,19 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
         client.Connect(IPAddress.Parse(ip), port);
     }
 
+    [Button]
+    public void Disconnet()
+    {
+        foreach(var client in _clients)
+        {
+            if (client.Connected)
+            {
+                client.Disconnect(DisconnectReason.User);
+                break;
+            }
+        }
+    }
+
     // Update is called once per frame
     private void Update()
     {
@@ -60,13 +73,14 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
 
     private void OnDestroy()
     {
-        _server?.Stop(DisconnectReason.User);
-
         foreach (var client in _clients)
         {
-            client?.Disconnect(DisconnectReason.User, true);
+            if (client.Connected)
+                client?.Disconnect(DisconnectReason.User, true);
         }
         _clients.Clear();
+
+        _server?.Stop(DisconnectReason.User);
     }
 
     public string Convert(int messageId)
@@ -103,14 +117,24 @@ public class TcpClientForClient : TcpClientBase
 
     private static int count = 0;
 
-    protected override void OnReceiveMessage(Message msg)
+    [MessageHandler(1)]
+    private void OnUserLogin(UserLoginOn userLoginOn)
     {
-        Debug.Log("TcpClientForClient OnReceiveMessage");
+        Debug.Log("TcpClientForClient OnUserLogin " + userLoginOn.UserName);
 
         var content = new UserLoginOn();
         content.UserName = "abc" + count++;
         Send(GoogleProtocolBufMessage.Allocate(1, content));
     }
+
+    //protected override void OnReceiveMessage(Message msg)
+    //{
+    //    Debug.Log("TcpClientForClient OnReceiveMessage");
+
+    //    var content = new UserLoginOn();
+    //    content.UserName = "abc" + count++;
+    //    Send(GoogleProtocolBufMessage.Allocate(1, content));
+    //}
 }
 
 public class TcpClientForServer : TcpClientBase
@@ -135,24 +159,34 @@ public class TcpClientForServer : TcpClientBase
 
     private static int count = 0;
 
-    protected override void OnReceiveMessage(Message msg)
+    [MessageHandler(1)]
+    private void OnUserLogin(UserLoginOn userLoginOn)
     {
-        Debug.Log("TcpClientForServer OnReceiveMessage");
-        if (msg.MessageId == 1)
-        {
-            var data = msg.GetData<UserLoginOn>();
-            Debug.Log($"UserName={data.UserName}");
+        Debug.Log("TcpClientForServer OnUserLogin " + userLoginOn.UserName);
 
-            var content = new UserLoginOn();
-            content.UserName = "xyz" + count++;
-            Send(GoogleProtocolBufMessage.Allocate(1, content));
-        }
-        if(msg.MessageId == 2)
-        {
-            var array = msg.GetData<ArraySeg<string>>();
-            Debug.Log($"0={array[0]} 1={array[1]}");
-        }
+        var content = new UserLoginOn();
+        content.UserName = "xyz" + count++;
+        Send(GoogleProtocolBufMessage.Allocate(1, content));
     }
+
+    //protected override void OnReceiveMessage(Message msg)
+    //{
+    //    Debug.Log("TcpClientForServer OnReceiveMessage");
+    //    if (msg.MessageId == 1)
+    //    {
+    //        var data = msg.GetData<UserLoginOn>();
+    //        Debug.Log($"UserName={data.UserName}");
+
+    //        var content = new UserLoginOn();
+    //        content.UserName = "xyz" + count++;
+    //        Send(GoogleProtocolBufMessage.Allocate(1, content));
+    //    }
+    //    if(msg.MessageId == 2)
+    //    {
+    //        var array = msg.GetData<ArraySeg<string>>();
+    //        Debug.Log($"0={array[0]} 1={array[1]}");
+    //    }
+    //}
 }
 
 public class TcpServerTest : TcpServerBase<TcpClientForServer>
