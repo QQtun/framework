@@ -120,7 +120,7 @@ public class TcpClientForClient : TcpClientBase
 
     protected override void OnDisconnected(DisconnectReason reason)
     {
-        Debug.Log("TcpClientForClient OnDisconnected");
+        Debug.Log("TcpClientForClient OnDisconnected reason=" + reason);
     }
 
     private int _count = 0;
@@ -155,14 +155,11 @@ public class TcpClientForClient : TcpClientBase
     }
 }
 
-public class TcpClientForServer : TcpClientBase
+public class TcpClientForServer : TcpClientBaseForServer<TcpClientForServer>
 {
-    public TcpServerBase<TcpClientForServer> Server { get; }
-
     public TcpClientForServer(TcpServerBase<TcpClientForServer> server, TcpClient client) 
-        : base(client, server.MessageFactory, server.BufferPool)
+        : base(server, client)
     {
-        Server = server;
     }
 
     protected override void OnConnected()
@@ -172,7 +169,8 @@ public class TcpClientForServer : TcpClientBase
 
     protected override void OnDisconnected(DisconnectReason reason)
     {
-        Debug.Log("TcpClientForServer OnDisconnected");
+        base.OnDisconnected(reason);
+        Debug.Log("TcpClientForServer OnDisconnected reason="+ reason);
     }
 
     private int _count = 0;

@@ -626,4 +626,16 @@ namespace Core.Framework.Network
         protected abstract void OnConnected();
         protected abstract void OnDisconnected(DisconnectReason reason);
     }
+
+    public abstract class TcpClientBaseForServer<T> : TcpClientBase
+        where T : TcpClientBase
+    {
+        public TcpServerBase<T> Server { get; }
+
+        public TcpClientBaseForServer(TcpServerBase<T> server, TcpClient client)
+            : base(client, server.MessageFactory, server.BufferPool)
+        {
+            Server = server;
+        }
+    }
 }

@@ -64,6 +64,15 @@ namespace Core.Framework.Network
             _accepter = null;
         }
 
+        public void RemoveClient(TcpClientBase client)
+        {
+            if (_clientToNodeDic.TryGetValue(client, out var node))
+            {
+                _clients.Remove(node);
+                _clientToNodeDic.Remove(client);
+            }
+        }
+
         public void MainLoop()
         {
             _accepter?.MainLoop();
@@ -73,11 +82,6 @@ namespace Core.Framework.Network
             foreach (var client in _tmpList)
             {
                 client.MainLoop();
-                if(!client.Connected)
-                {
-                    if(_clientToNodeDic.TryGetValue(client, out var node))
-                        _clients.Remove(node);
-                }
             }
         }
 
