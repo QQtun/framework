@@ -52,7 +52,9 @@ namespace Core.Framework.Network
 
         public void Stop(DisconnectReason reason)
         {
-            foreach(var client in _clients)
+            _tmpList.Clear();
+            _tmpList.AddRange(_clients);
+            foreach (var client in _tmpList)
             {
                 client.Disconnect(reason, true);
             }
