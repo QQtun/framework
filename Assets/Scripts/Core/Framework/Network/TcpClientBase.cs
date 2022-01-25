@@ -169,6 +169,25 @@ namespace Core.Framework.Network
                 }
 
                 _tcpState.connecting = false;
+
+                if(_tcpState.headerBuffer != null)
+                {
+                    BufferPool.HeaderBufferPool.Dealloc(_tcpState.headerBuffer);
+                    _tcpState.headerBuffer = null;
+                }
+                if (_tcpState.contentState.buffers.Count > 0)
+                {
+                    for (int i = 0; i < _tcpState.contentState.buffers.Count; i++)
+                    {
+                        BufferPool.ContentBufferPool.Dealloc(_tcpState.contentState.buffers[i]);
+                    }
+                    _tcpState.contentState.buffers.Clear();
+                }
+                if(_tcpState.footerBuffer != null)
+                {
+                    BufferPool.FooterBufferPool.Dealloc(_tcpState.footerBuffer);
+                    _tcpState.footerBuffer = null;
+                }
             }
 
             lock(_sendState)
@@ -360,7 +379,6 @@ namespace Core.Framework.Network
             {
                 lock (tcpState)
                 {
-
                     if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
                     {
                         if (tcpState.headerBuffer == null)
