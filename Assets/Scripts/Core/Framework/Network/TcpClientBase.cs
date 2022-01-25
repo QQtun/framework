@@ -233,21 +233,24 @@ namespace Core.Framework.Network
             }
         }
 
-        public bool Request(Message msg)
+        public ValueTuple<bool, uint> Request(Message msg)
         {
-            if(!Connected)
+            ValueTuple<bool, uint> ret;
+            if (!Connected)
             {
                 Debug.Log("Can't Send When Disconnected");
-                return false;
+                ret = new ValueTuple<bool, uint>(false, 0);
+                return ret;
             }
 
             lock (_sendState)
             { 
                 msg.SetRequestSerial(++_sendState.reqSerial);
                 msg.SetResponseSerial(0);
+                ret = new ValueTuple<bool, uint>(true, _sendState.reqSerial);
             }
             Send(msg);
-            return true;
+            return ret;
         }
 
         public bool Response(uint reqSerial, Message msg)

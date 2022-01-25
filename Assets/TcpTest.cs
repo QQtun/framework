@@ -4,6 +4,7 @@ using Core.Framework.Network.Data;
 using Core.Framework.Utility;
 using P5.Protobuf;
 using Sirenix.OdinInspector;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -108,11 +109,13 @@ public class TcpClientForClient : TcpClientBase
         var content = new UserLoginOn();
         content.UserName = "abc";
         var msg = GoogleProtocolBufMessage.Allocate(1, content);
-        Request(msg);
+        var ret = Request(msg);
+        _userLoginPing = new ValueTuple<uint, DateTime>(ret.Item2, DateTime.Now);
 
         var strMsg = StringMessage.Allocate(2);
         strMsg.Append("aaa", "123");
-        Request(strMsg);
+        ret = Request(strMsg);
+        _strMsgPing = new ValueTuple<uint, DateTime>(ret.Item2, DateTime.Now);
     }
 
     protected override void OnDisconnected(DisconnectReason reason)
@@ -120,26 +123,35 @@ public class TcpClientForClient : TcpClientBase
         Debug.Log("TcpClientForClient OnDisconnected");
     }
 
-    private static int count = 0;
+    private int _count = 0;
+    private ValueTuple<uint, DateTime> _userLoginPing;
 
     [MessageHandler(1)]
     private void OnUserLogin(Message msg, UserLoginOn userLoginOn)
     {
         Debug.Log("TcpClientForClient OnUserLogin " + userLoginOn.UserName);
+        var diff = DateTime.Now - _userLoginPing.Item2;
+        Debug.Log($"diff.TotalMilliseconds={diff.TotalMilliseconds}");
+
 
         var content = new UserLoginOn();
-        content.UserName = "abc" + count++;
-        Request(GoogleProtocolBufMessage.Allocate(1, content));
+        content.UserName = "abc" + _count++;
+        var ret = Request(GoogleProtocolBufMessage.Allocate(1, content));
+        _userLoginPing = new ValueTuple<uint, DateTime>(ret.Item2, DateTime.Now);
     }
 
+    private ValueTuple<uint, DateTime> _strMsgPing;
     [MessageHandler(2)]
     private void OnStringMsg(Message msg, ArraySeg<string> strs)
     {
         Debug.Log("TcpClientForClient OnStringMsg strs[0]=" + strs[0]);
+        var diff = DateTime.Now - _strMsgPing.Item2;
+        Debug.Log($"diff.TotalMilliseconds={diff.TotalMilliseconds}");
 
         var strMsg = StringMessage.Allocate(2);
-        strMsg.Append("abc" + count++);
-        Request(strMsg);
+        strMsg.Append("abc" + _count++);
+        var ret = Request(strMsg);
+        _strMsgPing = new ValueTuple<uint, DateTime>(ret.Item2, DateTime.Now);
     }
 }
 
@@ -163,7 +175,7 @@ public class TcpClientForServer : TcpClientBase
         Debug.Log("TcpClientForServer OnDisconnected");
     }
 
-    private static int count = 0;
+    private int _count = 0;
 
     [MessageHandler(1)]
     private void OnUserLogin(Message msg, UserLoginOn userLoginOn)
@@ -171,7 +183,7 @@ public class TcpClientForServer : TcpClientBase
         Debug.Log("TcpClientForServer OnUserLogin " + userLoginOn.UserName);
 
         var content = new UserLoginOn();
-        content.UserName = "xyz" + count++;
+        content.UserName = "xyz" + _count++;
         Response(msg.Header.RequsetSerial, GoogleProtocolBufMessage.Allocate(1, content));
     }
 
@@ -181,7 +193,7 @@ public class TcpClientForServer : TcpClientBase
         Debug.Log("TcpClientForServer OnStringMsg strs[0]=" + strs[0]);
 
         var strMsg = StringMessage.Allocate(2);
-        strMsg.Append("xyz" + count++);
+        strMsg.Append("xyz" + _count++);
         Response(msg.Header.RequsetSerial, strMsg);
     }
 }
