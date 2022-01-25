@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Threading;
 
 namespace Core.Framework.Network
@@ -34,6 +33,8 @@ namespace Core.Framework.Network
         private class SendState
         {
             public bool sending;
+            public uint reqSerial;
+            public uint rspSerial;
             public List<Message> sendMsgs = new List<Message>();
         }
 
@@ -72,8 +73,6 @@ namespace Core.Framework.Network
 
         private DisconnetState _disconnetState;
         private SendState _sendState;
-
-        private object[] _onReceObjectArrayCache = new object[1];
 
         public MessageFactory MessageFactory { get; }
         private BufferPool BufferPool { get; }
@@ -234,7 +233,7 @@ namespace Core.Framework.Network
             }
         }
 
-        public bool Send(Message msg)
+        public bool Request(Message msg)
         {
             if(!Connected)
             {
@@ -242,7 +241,35 @@ namespace Core.Framework.Network
                 return false;
             }
 
-            lock(_sendState)
+            lock (_sendState)
+            { 
+                msg.SetRequestSerial(++_sendState.reqSerial);
+                msg.SetResponseSerial(0);
+            }
+            Send(msg);
+            return true;
+        }
+
+        public bool Response(uint reqSerial, Message msg)
+        {
+            if (!Connected)
+            {
+                Debug.Log("Can't Send When Disconnected");
+                return false;
+            }
+
+            msg.SetRequestSerial(reqSerial);
+            lock (_sendState)
+            {
+                msg.SetResponseSerial(++_sendState.rspSerial);
+            }
+            Send(msg);
+            return true;
+        }
+
+        private void Send(Message msg)
+        {
+            lock (_sendState)
             {
                 _sendState.sendMsgs.Add(msg);
                 if (!_sendState.sending)
@@ -251,11 +278,14 @@ namespace Core.Framework.Network
                     ThreadPool.QueueUserWorkItem(SendMainLoopThreaded, _tcpState);
                 }
             }
-            return true;
         }
 
         public void BegineReceive()
         {
+            lock (_connectState)
+            {
+                _connectState.invoke = true;
+            }
             ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, _tcpState);
         }
 
@@ -584,94 +614,13 @@ namespace Core.Framework.Network
 
         protected virtual void OnReceiveMessage(Message msg)
         {
-            var handleInfo = MessageHandlerUtil.GetHandlerMethod(GetType(), msg.MessageId);
-            if (handleInfo.HasValue)
+            if(!MessageHandlerUtil.TryInvokeHandler(this, msg))
             {
-                _onReceObjectArrayCache[0] = msg.GetData(handleInfo.Value.paramType);
-                handleInfo.Value.methodInfo.Invoke(this, _onReceObjectArrayCache);
+                Debug.LogWarning($"missing message handler !! messageId={MessageNameConverter.Convert(msg.MessageId)}");
             }
         }
 
         protected abstract void OnConnected();
         protected abstract void OnDisconnected(DisconnectReason reason);
-    }
-
-    public class MessageHandlerAttribute : Attribute
-    {
-        public int MessageId { get; }
-
-        public MessageHandlerAttribute(int messageID)
-        {
-            MessageId = messageID;
-        }
-    }
-
-    public static class MessageHandlerUtil
-    {
-        public struct HandlerInfo
-        {
-            public MethodInfo methodInfo;
-            public Type paramType;
-        }
-
-        private static Dictionary<Type, Dictionary<int, HandlerInfo>> s_typeToHandlersDic 
-            = new Dictionary<Type, Dictionary<int, HandlerInfo>>();
-
-        public static void Init(Type type)
-        {
-            if (type == null)
-                return;
-            if (s_typeToHandlersDic.ContainsKey(type))
-                return;
-
-            var handlers = new Dictionary<int, HandlerInfo>();
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                var attr = method.GetCustomAttribute<MessageHandlerAttribute>();
-                if (attr != null)
-                {
-                    if(handlers.TryGetValue(attr.MessageId, out var _))
-                    {
-                        Debug.LogError($"duplicate message handler method={method.Name} MessageId={attr.MessageId}!!");
-                    }
-                    else
-                    {
-                        var paramArray = method.GetParameters();
-                        if (paramArray.Length == 1)
-                        {
-                            var parameter = paramArray[0];
-                            if (typeof(Google.Protobuf.IMessage).IsAssignableFrom(parameter.ParameterType))
-                            {
-                                handlers.Add(attr.MessageId, new HandlerInfo() { methodInfo= method, paramType = parameter.ParameterType });
-                            }
-                        }
-                    }
-                }
-            }
-            if (handlers.Count > 0)
-            {
-                lock (s_typeToHandlersDic)
-                {
-                    s_typeToHandlersDic[type] = handlers;
-                }
-            }
-        }
-
-        public static HandlerInfo? GetHandlerMethod(Type handlerType, int messageId)
-        {
-            Dictionary<int, HandlerInfo> handlerDic;
-            lock(s_typeToHandlersDic)
-            {
-                if (!s_typeToHandlersDic.TryGetValue(handlerType, out handlerDic))
-                {
-                    return null;
-                }
-            }
-            if (!handlerDic.TryGetValue(messageId, out var m))
-            {
-                return null;
-            }
-            return m;
-        }
     }
 }

@@ -84,6 +84,20 @@ namespace Core.Framework.Network.Data
             OnWriteBuffer = null;
         }
 
+        public void SetRequestSerial(uint serial)
+        {
+            var header = Header;
+            header.RequsetSerial = serial;
+            Header = header;
+        }
+
+        public void SetResponseSerial(uint serial)
+        {
+            var header = Header;
+            header.ResponseSerial = serial;
+            Header = header;
+        }
+
         public int Serialize(MemoryStream ms)
         {
             return DoSerialize(ms);

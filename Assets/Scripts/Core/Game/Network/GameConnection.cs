@@ -55,7 +55,7 @@ namespace Core.Game.Network
             base.Init();
             mLoginSuccessed = false;
 
-            MessageNameConverter.Converter = new MessageID2String();
+            MessageNameConverter.Delegate = new MessageID2String();
             mLoginListener = new LoginConnectionListener();
             mFactory = new MessageFactory();
 

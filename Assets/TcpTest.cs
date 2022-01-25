@@ -20,7 +20,7 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
 
     void Start()
     {
-        MessageNameConverter.Converter = this;
+        MessageNameConverter.Delegate = this;
 
         System.Threading.ThreadPool.GetMinThreads(out var workerThreads, out var completThreads);
         Debug.Log($"min workerThreads={workerThreads} completThreads={completThreads}");
@@ -38,6 +38,11 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
 
         //MessageHandlerUtil.Init(typeof(TcpClientForClient));
         //_client = new TcpClientForClient(_msgFactory, BufferPool.Default);
+
+        //var a = uint.MaxValue;
+        //Debug.Log($"a={a}");
+        //a = a + 1;
+        //Debug.Log($"a={a}");
     }
 
     [Button]
@@ -103,11 +108,11 @@ public class TcpClientForClient : TcpClientBase
         var content = new UserLoginOn();
         content.UserName = "abc";
         var msg = GoogleProtocolBufMessage.Allocate(1, content);
-        Send(msg);
+        Request(msg);
 
         var strMsg = StringMessage.Allocate(2);
         strMsg.Append("aaa", "123");
-        Send(strMsg);
+        Request(strMsg);
     }
 
     protected override void OnDisconnected(DisconnectReason reason)
@@ -118,23 +123,24 @@ public class TcpClientForClient : TcpClientBase
     private static int count = 0;
 
     [MessageHandler(1)]
-    private void OnUserLogin(UserLoginOn userLoginOn)
+    private void OnUserLogin(Message msg, UserLoginOn userLoginOn)
     {
         Debug.Log("TcpClientForClient OnUserLogin " + userLoginOn.UserName);
 
         var content = new UserLoginOn();
         content.UserName = "abc" + count++;
-        Send(GoogleProtocolBufMessage.Allocate(1, content));
+        Request(GoogleProtocolBufMessage.Allocate(1, content));
     }
 
-    //protected override void OnReceiveMessage(Message msg)
-    //{
-    //    Debug.Log("TcpClientForClient OnReceiveMessage");
+    [MessageHandler(2)]
+    private void OnStringMsg(Message msg, ArraySeg<string> strs)
+    {
+        Debug.Log("TcpClientForClient OnStringMsg strs[0]=" + strs[0]);
 
-    //    var content = new UserLoginOn();
-    //    content.UserName = "abc" + count++;
-    //    Send(GoogleProtocolBufMessage.Allocate(1, content));
-    //}
+        var strMsg = StringMessage.Allocate(2);
+        strMsg.Append("abc" + count++);
+        Request(strMsg);
+    }
 }
 
 public class TcpClientForServer : TcpClientBase
@@ -149,7 +155,7 @@ public class TcpClientForServer : TcpClientBase
 
     protected override void OnConnected()
     {
-        Debug.LogError("TcpClientForServer OnConnected");
+        Debug.Log("TcpClientForServer OnConnected");
     }
 
     protected override void OnDisconnected(DisconnectReason reason)
@@ -160,33 +166,24 @@ public class TcpClientForServer : TcpClientBase
     private static int count = 0;
 
     [MessageHandler(1)]
-    private void OnUserLogin(UserLoginOn userLoginOn)
+    private void OnUserLogin(Message msg, UserLoginOn userLoginOn)
     {
         Debug.Log("TcpClientForServer OnUserLogin " + userLoginOn.UserName);
 
         var content = new UserLoginOn();
         content.UserName = "xyz" + count++;
-        Send(GoogleProtocolBufMessage.Allocate(1, content));
+        Response(msg.Header.RequsetSerial, GoogleProtocolBufMessage.Allocate(1, content));
     }
 
-    //protected override void OnReceiveMessage(Message msg)
-    //{
-    //    Debug.Log("TcpClientForServer OnReceiveMessage");
-    //    if (msg.MessageId == 1)
-    //    {
-    //        var data = msg.GetData<UserLoginOn>();
-    //        Debug.Log($"UserName={data.UserName}");
+    [MessageHandler(2)]
+    private void OnStringMsg(Message msg, ArraySeg<string> strs)
+    {
+        Debug.Log("TcpClientForServer OnStringMsg strs[0]=" + strs[0]);
 
-    //        var content = new UserLoginOn();
-    //        content.UserName = "xyz" + count++;
-    //        Send(GoogleProtocolBufMessage.Allocate(1, content));
-    //    }
-    //    if(msg.MessageId == 2)
-    //    {
-    //        var array = msg.GetData<ArraySeg<string>>();
-    //        Debug.Log($"0={array[0]} 1={array[1]}");
-    //    }
-    //}
+        var strMsg = StringMessage.Allocate(2);
+        strMsg.Append("xyz" + count++);
+        Response(msg.Header.RequsetSerial, strMsg);
+    }
 }
 
 public class TcpServerTest : TcpServerBase<TcpClientForServer>

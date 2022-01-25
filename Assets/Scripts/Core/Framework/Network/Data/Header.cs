@@ -20,7 +20,9 @@ namespace Core.Framework.Network.Data
         [FieldOffset(4)]
         private int _contentSize;
         [FieldOffset(8)]
-        private long _time;
+        private uint _requsetSerial;
+        [FieldOffset(12)]
+        private uint _responseSerial;
 
         [FieldOffset(0)] private byte _byte0;
         [FieldOffset(1)] private byte _byte1;
@@ -61,6 +63,18 @@ namespace Core.Framework.Network.Data
         public int MessageId
         {
             get { return _messageId; }
+        }
+
+        public uint RequsetSerial
+        {
+            get => _requsetSerial;
+            set => _requsetSerial = value;
+        }
+
+        public uint ResponseSerial
+        {
+            get => _responseSerial;
+            set => _responseSerial = value;
         }
 
         public Header(int messageId, int contentSize = 0) : this()

@@ -9,15 +9,15 @@ namespace Core.Framework.Network
 
     public class MessageNameConverter 
     {
-        public static IMessageNameConverter Converter { get; set; }
+        public static IMessageNameConverter Delegate { get; set; }
 
         public static string Convert(int messageId)
         {
-            if(Converter != null)
+            if(Delegate != null)
             {
-                return Converter.Convert(messageId);
+                return Delegate.Convert(messageId);
             }
-            Debug.LogError("Set Converter first !!");
+            //Debug.LogError("Set Converter first !!");
             return messageId.ToString();
         }
     }
