@@ -567,34 +567,37 @@ namespace Core.Framework.Network
             {
                 if (tcpClient.Client.Poll(0, SelectMode.SelectWrite))
                 {
-                    lock (_sendState)
+                    bool continueSend;
+                    do
                     {
-                        for (int i = 0; i < _sendState.sendMsgs.Count; i++)
+                        sendStream.Clear();
+                        lock (_sendState)
                         {
-                            var msg = _sendState.sendMsgs[i];
-                            sendStream.Write(msg);
+                            for (int i = 0; i < _sendState.sendMsgs.Count; i++)
+                            {
+                                var msg = _sendState.sendMsgs[i];
+                                sendStream.Write(msg);
+                            }
+                            _sendState.sendMsgs.Clear();
                         }
-                        _sendState.sendMsgs.Clear();
-                    }
 
-                    sendStream.ForeachBuffer(
-                        sendBuffer =>
-                        {
-                            netStream.Write(sendBuffer.Buffer, sendBuffer.SentSize, sendBuffer.UnsendSize);
-                            sendBuffer.IncreaseSentSize(sendBuffer.UnsendSize);
-                        });
+                        sendStream.ForeachBuffer(
+                            sendBuffer =>
+                            {
+                                netStream.Write(sendBuffer.Buffer, sendBuffer.SentSize, sendBuffer.UnsendSize);
+                                sendBuffer.IncreaseSentSize(sendBuffer.UnsendSize);
+                            });
 
-                    lock (_sendState)
-                    {
-                        if (_sendState.sendMsgs.Count > 0)
+                        lock (_sendState)
                         {
-                            ThreadPool.QueueUserWorkItem(SendMainLoopThreaded, state);
-                        }
-                        else
-                        {
-                            _sendState.sending = false;
+                            continueSend = _sendState.sendMsgs.Count > 0;
+                            if (!continueSend)
+                            {
+                                _sendState.sending = false;
+                            }
                         }
                     }
+                    while (continueSend);
                 }
                 else
                 {
