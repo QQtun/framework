@@ -133,6 +133,39 @@ namespace Core.Framework.Network.Buffers
         }
     }
 
+    public class SendStreamPool
+    {
+        public static readonly SendStreamPool Default = new SendStreamPool(SendBufferPool.Default);
+
+        private Queue<SendBufferStream> _pool = new Queue<SendBufferStream>();
+
+        public SendBufferPool SendBufferPool { get; }
+
+        public SendStreamPool(SendBufferPool bufferPool)
+        {
+            SendBufferPool = bufferPool;
+        }
+
+        public SendBufferStream Alloc()
+        {
+            lock (_pool)
+            {
+                if (_pool.Count > 0)
+                    return _pool.Dequeue();
+                return new SendBufferStream(SendBufferPool);
+            }
+        }
+
+        public void Dealloc(SendBufferStream stream)
+        {
+            stream.Clear();
+            lock (_pool)
+            {
+                _pool.Enqueue(stream);
+            }
+        }
+    }
+
     public class BufferPool
     {
         public static readonly BufferPool Default = new BufferPool(
@@ -142,6 +175,7 @@ namespace Core.Framework.Network.Buffers
         public HeaderBufferPool HeaderBufferPool { get; private set; }
         public FooterBufferPool FooterBufferPool { get; private set; }
         public SendBufferPool SendBufferPool { get; private set; }
+        public SendStreamPool SendStreamPool { get; private set; }
 
         public BufferPool(HeaderBufferPool header, ContentBufferPool content, FooterBufferPool footer, SendBufferPool sendBuffer)
         {
@@ -149,6 +183,7 @@ namespace Core.Framework.Network.Buffers
             ContentBufferPool = content;
             FooterBufferPool = footer;
             SendBufferPool = sendBuffer;
+            SendStreamPool = new SendStreamPool(sendBuffer);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Core.Framework.Network.Data;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Core.Framework.Network.Buffers
@@ -75,6 +76,27 @@ namespace Core.Framework.Network.Buffers
 #if !NDEBUG
             message.OnWriteBuffer?.Invoke(new ArraySegment<byte>(Buffer, (int)begin, (int)(end - begin)));
 #endif
+            return true;
+        }
+
+        public bool WriteToBuffer(byte[] buffer, int offset, int len, out int writeCount)
+        {
+            var remaining = BufferSize - DataSize;
+
+            if (remaining == 0)
+            {
+                // message 寫不進 buffer
+                writeCount = 0;
+                return false;
+            }
+
+            writeCount = Math.Min(remaining, len);
+            MemoryStream ms = GetStream();
+            ms.Write(buffer, offset, writeCount);
+            ms.Flush();
+
+            long end = ms.Position;
+            DataSize = (int)end;
             return true;
         }
 

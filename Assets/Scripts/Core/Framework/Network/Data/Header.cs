@@ -111,7 +111,7 @@ namespace Core.Framework.Network.Data
             }
         }
 
-        public int Serialize(MemoryStream ms)
+        public int Serialize(Stream ms)
         {
             ms.WriteByte(_byte0);
             ms.WriteByte(_byte1);
@@ -158,7 +158,7 @@ namespace Core.Framework.Network.Data
             _byte15 = data[offset++];
         }
 
-        public void Deserialize(MemoryStream ms)
+        public void Deserialize(Stream ms)
         {
             _byte0 = (byte)ms.ReadByte();
             _byte1 = (byte)ms.ReadByte();

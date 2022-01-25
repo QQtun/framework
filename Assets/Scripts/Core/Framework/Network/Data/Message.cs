@@ -98,7 +98,7 @@ namespace Core.Framework.Network.Data
             Header = header;
         }
 
-        public int Serialize(MemoryStream ms)
+        public int Serialize(Stream ms)
         {
             return DoSerialize(ms);
         }
@@ -108,7 +108,7 @@ namespace Core.Framework.Network.Data
             DoDeserialize(factory, data, size);
         }
 
-        public void Deserialize(MessageFactory factory, MemoryStream ms)
+        public void Deserialize(MessageFactory factory, Stream ms)
         {
             DoDeserialize(factory, ms);
         }
@@ -130,11 +130,11 @@ namespace Core.Framework.Network.Data
 
         protected abstract void DoDeserialize(MessageFactory factory, byte[] data, int size);
 
-        protected abstract void DoDeserialize(MessageFactory factory, MemoryStream ms);
+        protected abstract void DoDeserialize(MessageFactory factory, Stream ms);
 
         protected abstract byte[] DoSerialize();
 
-        protected abstract int DoSerialize(MemoryStream ms);
+        protected abstract int DoSerialize(Stream ms);
 
         /// <summary>
         ///     增加引用次數, 避免物件被回收
@@ -293,7 +293,7 @@ namespace Core.Framework.Network.Data
             }
         }
 
-        protected override void DoDeserialize(MessageFactory factory, MemoryStream ms)
+        protected override void DoDeserialize(MessageFactory factory, Stream ms)
         {
             Type type = factory.GetMessageType(MessageId);
 
@@ -318,7 +318,7 @@ namespace Core.Framework.Network.Data
             return null;
         }
 
-        protected override int DoSerialize(MemoryStream ms)
+        protected override int DoSerialize(Stream ms)
         {
             if (Message != null)
             {
@@ -438,7 +438,7 @@ namespace Core.Framework.Network.Data
             }
         }
 
-        protected override void DoDeserialize(MessageFactory factory, MemoryStream ms)
+        protected override void DoDeserialize(MessageFactory factory, Stream ms)
         {
             Type type = factory.GetMessageType(MessageId);
 
@@ -463,7 +463,7 @@ namespace Core.Framework.Network.Data
             return data;
         }
 
-        protected override int DoSerialize(MemoryStream ms)
+        protected override int DoSerialize(Stream ms)
         {
             long startPos = ms.Position;
             GoogleProtocolSerializer.Serialize(ms, Message);
@@ -604,7 +604,7 @@ namespace Core.Framework.Network.Data
             Data = Fields;
         }
 
-        protected override void DoDeserialize(MessageFactory factory, MemoryStream ms)
+        protected override void DoDeserialize(MessageFactory factory, Stream ms)
         {
             if (_deserializeBufferCache == null || _deserializeBufferCache.Length < ms.Length)
                 _deserializeBufferCache = new byte[ms.Length + 100];
@@ -631,7 +631,7 @@ namespace Core.Framework.Network.Data
             return strBytes;
         }
 
-        protected override int DoSerialize(MemoryStream ms)
+        protected override int DoSerialize(Stream ms)
         {
             var strBytes = Encoding.UTF8.GetBytes(_stringCache);
             ms.Write(strBytes, 0, strBytes.Length);
@@ -738,7 +738,7 @@ namespace Core.Framework.Network.Data
             Data = RawData;
         }
 
-        protected override void DoDeserialize(MessageFactory factory, MemoryStream ms)
+        protected override void DoDeserialize(MessageFactory factory, Stream ms)
         {
             int size = (int)ms.Length;
             if (_buffer == null || _buffer.Length < size)
@@ -762,7 +762,7 @@ namespace Core.Framework.Network.Data
             return outBuffer;
         }
 
-        protected override int DoSerialize(MemoryStream ms)
+        protected override int DoSerialize(Stream ms)
         {
 
             long startPos = ms.Position;

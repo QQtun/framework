@@ -11,6 +11,6 @@ namespace Core.Framework.Network.Data
     {
         byte[] Serialize();
         int CalculateSize();
-        int Serialize(MemoryStream ms);
+        int Serialize(Stream ms);
     }
 }

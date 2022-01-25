@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Core.Framework.Network.Buffers;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -49,7 +51,7 @@ namespace Core.Framework.Network.Data
             }
         }
 
-        public int Serialize(MemoryStream ms)
+        public int Serialize(Stream ms)
         {
             ms.WriteByte(_byte0);
             ms.WriteByte(_byte1);
@@ -80,7 +82,7 @@ namespace Core.Framework.Network.Data
             _byte7 = data[offset++];
         }
 
-        public void Deserialize(MemoryStream ms)
+        public void Deserialize(Stream ms)
         {
             _byte0 = (byte)ms.ReadByte();
             _byte1 = (byte)ms.ReadByte();
@@ -102,6 +104,45 @@ namespace Core.Framework.Network.Data
                 int product = inputData[i] & 0x7F; // Take the low 7 bits from the record.
                 product *= i + 1; // Multiply by the 1 based position.
                 sum += (uint)product; // Add the product to the running sum.
+            }
+
+            byte[] result = new byte[8];
+            for (int i = 0; i < 8; i++) // if the checksum is reversed, make this:
+                                        // for (int i = 7; i >=0; i--) 
+            {
+                uint current = (uint)(sum & 0x0f); // take the lowest 4 bits.
+                current += zeroOffset; // Add '0'
+                result[i] = (byte)current;
+                sum = sum >> 4; // Right shift the bottom 4 bits off.
+            }
+
+            int offset = 0;
+            var ret = new Footer();
+            ret._byte0 = result[offset++];
+            ret._byte1 = result[offset++];
+            ret._byte2 = result[offset++];
+            ret._byte3 = result[offset++];
+            ret._byte4 = result[offset++];
+            ret._byte5 = result[offset++];
+            ret._byte6 = result[offset++];
+            ret._byte7 = result[offset++];
+            return ret;
+        }
+
+        public static Footer Create(List<SendBuffer> buffers)
+        {
+            uint sum = 0;
+            uint zeroOffset = 0x30; // ASCII '0'
+
+            for (int bi = 0; bi < buffers.Count; bi++)
+            {
+                var buffer = buffers[bi];
+                for (int i = 0; i < buffer.DataSize; i++)
+                {
+                    int product = buffer.Buffer[i] & 0x7F; // Take the low 7 bits from the record.
+                    product *= i + 1; // Multiply by the 1 based position.
+                    sum += (uint)product; // Add the product to the running sum.
+                }
             }
 
             byte[] result = new byte[8];

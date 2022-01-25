@@ -562,30 +562,27 @@ namespace Core.Framework.Network
                 netStream = tcpState.netStream;
             }
 
+            var sendStream = BufferPool.SendStreamPool.Alloc();
             try
             {
                 if (tcpClient.Client.Poll(0, SelectMode.SelectWrite))
                 {
-                    var sendBuffer = BufferPool.SendBufferPool.Alloc();
-
                     lock (_sendState)
                     {
-                        int index = 0;
-                        for (; index < _sendState.sendMsgs.Count; index++)
+                        for (int i = 0; i < _sendState.sendMsgs.Count; i++)
                         {
-                            var msg = _sendState.sendMsgs[index];
-                            if (!sendBuffer.WriteToBuffer(msg))
-                            {
-                                break;
-                            }
+                            var msg = _sendState.sendMsgs[i];
+                            sendStream.Write(msg);
                         }
-                        _sendState.sendMsgs.RemoveRange(0, index);
+                        _sendState.sendMsgs.Clear();
                     }
 
-                    netStream.Write(sendBuffer.Buffer, sendBuffer.SentSize, sendBuffer.UnsendSize);
-
-                    BufferPool.SendBufferPool.Dealloc(sendBuffer);
-                    sendBuffer = null;
+                    sendStream.ForeachBuffer(
+                        sendBuffer =>
+                        {
+                            netStream.Write(sendBuffer.Buffer, sendBuffer.SentSize, sendBuffer.UnsendSize);
+                            sendBuffer.IncreaseSentSize(sendBuffer.UnsendSize);
+                        });
 
                     lock (_sendState)
                     {
@@ -612,6 +609,11 @@ namespace Core.Framework.Network
                     _sendState.sending = false;
                 }
                 TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
+            }
+            finally
+            {
+                BufferPool.SendStreamPool.Dealloc(sendStream);
+                sendStream = null;
             }
         }
 
