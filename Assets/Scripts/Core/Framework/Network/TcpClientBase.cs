@@ -637,5 +637,10 @@ namespace Core.Framework.Network
         {
             Server = server;
         }
+
+        protected override void OnDisconnected(DisconnectReason reason)
+        {
+            Server.RemoveClient(this);
+        }
     }
 }
