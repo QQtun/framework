@@ -52,6 +52,7 @@ namespace Core.Framework.Network
         {
             public IPAddress ip;
             public int port;
+            public bool connecting;
 
             public TcpClient tcpClient;
             public NetworkStream netStream;
@@ -128,7 +129,7 @@ namespace Core.Framework.Network
             {
                 lock (_tcpState)
                 {
-                    if (_tcpState.tcpClient != null && _tcpState.tcpClient.Connected)
+                    if (_tcpState.tcpClient != null)
                     {
                         Disconnect(DisconnectReason.User, true);
                         lock (_connectState)
@@ -136,10 +137,7 @@ namespace Core.Framework.Network
                             _connectState.invoke = false;
                         }
                     }
-                }
 
-                lock (_tcpState)
-                {
                     _tcpState.tcpClient = new TcpClient();
                     _tcpState.ip = ip;
                     _tcpState.port = port;
@@ -170,6 +168,8 @@ namespace Core.Framework.Network
                     _tcpState.tcpClient.Close();
                     _tcpState.tcpClient = null;
                 }
+
+                _tcpState.connecting = false;
             }
 
             lock(_sendState)
@@ -265,29 +265,50 @@ namespace Core.Framework.Network
             TcpClient tcpClient;
             lock (tcpState)
             {
+                if (tcpState.connecting)
+                    return;
                 if (tcpState.tcpClient == null)
                     return;
+                if (tcpState.tcpClient != null && tcpState.tcpClient.Connected)
+                    return;
+                tcpState.connecting = true;
                 tcpClient = tcpState.tcpClient;
             }
 
             try
             {
-                lock (tcpState)
+                tcpClient.Connect(tcpState.ip, tcpState.port);
+
+                if(tcpClient.Connected)
                 {
-                    tcpClient.Connect(tcpState.ip, tcpState.port);
-                    tcpState.netStream = tcpClient.GetStream();
+                    lock (tcpState)
+                    {
+                        tcpState.netStream = tcpClient.GetStream();
+                    }
 
                     lock (_connectState)
                     {
                         _connectState.invoke = true;
                     }
+
+                    ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
                 }
-                ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
+                else
+                {
+                    TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
+                }
             }
             catch(Exception ex)
             {
                 Debug.LogError(ex);
                 TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
+            }
+            finally
+            {
+                lock (tcpState)
+                {
+                    tcpState.connecting = false;
+                }
             }
         }
 
