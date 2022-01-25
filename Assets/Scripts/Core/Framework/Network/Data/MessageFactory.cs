@@ -304,7 +304,7 @@ namespace Core.Framework.Network.Data
         /// <param name="messageId">封包編號</param>
         /// <param name="ms">binary資料來源</param>
         /// <returns></returns>
-        public Message CreateMessage(int messageId, MemoryStream ms)
+        public Message CreateMessage(int messageId, Stream ms)
         {
             lock (_lock)
             {
@@ -341,7 +341,7 @@ namespace Core.Framework.Network.Data
         /// <param name="header">封包標頭, 包含封包編號與長度</param>
         /// <param name="ms">binary資料來源</param>
         /// <returns></returns>
-        public Message CreateMessage(Header header, MemoryStream ms)
+        public Message CreateMessage(Header header, Stream ms)
         {
             lock (_lock)
             {
