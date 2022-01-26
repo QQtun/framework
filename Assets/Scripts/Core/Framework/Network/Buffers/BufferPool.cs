@@ -1,4 +1,5 @@
 ﻿using LogUtil;
+using System;
 using System.Collections.Generic;
 
 namespace Core.Framework.Network.Buffers
@@ -15,6 +16,15 @@ namespace Core.Framework.Network.Buffers
         public BufferBasePool(int size)
         {
             BufferSize = size;
+        }
+
+        public void PreAlloc(int count)
+        {
+            count = Math.Min(count, MaxBufferAllocCount - _allocCount);
+            for (int i = 0; i < count; i++)
+            {
+                _pool.Enqueue(new BufferBase(BufferSize));
+            }
         }
 
         private int _allocCount = 0;
