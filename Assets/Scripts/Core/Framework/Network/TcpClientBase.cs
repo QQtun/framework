@@ -13,23 +13,6 @@ namespace Core.Framework.Network
     {
         private static readonly byte[] ZeroBuffer = new byte[0];
 
-        //private class ContentState
-        //{
-        //    public Header header;
-        //    public int receiveSize;
-        //    public List<ContentBuffer> buffers = new List<ContentBuffer>();
-
-        //    public ContentBuffer LastBuffer
-        //    {
-        //        get
-        //        {
-        //            if (buffers.Count == 0)
-        //                return null;
-        //            return buffers[buffers.Count - 1];
-        //        }
-        //    }
-        //}
-
         private class SendState
         {
             public bool sending;
@@ -499,7 +482,7 @@ namespace Core.Framework.Network
                 netStream = tcpState.netStream;
             }
 
-            var sendStream = BufferPoolProvider.BufferStreamPool.Alloc();
+            var buffStream = BufferPoolProvider.BufferStreamPool.Alloc();
             try
             {
                 if (tcpClient.Client.Poll(0, SelectMode.SelectWrite))
@@ -507,25 +490,19 @@ namespace Core.Framework.Network
                     bool continueSend;
                     do
                     {
-                        sendStream.Clear();
+                        buffStream.Clear();
                         lock (_sendState)
                         {
                             for (int i = 0; i < _sendState.sendMsgs.Count; i++)
                             {
                                 var msg = _sendState.sendMsgs[i];
-                                sendStream.Write(msg);
+                                buffStream.Write(msg);
                             }
                             _sendState.sendMsgs.Clear();
                         }
 
-                        sendStream.Seek(0, System.IO.SeekOrigin.Begin);
-                        sendStream.CopyTo(netStream);
-                        //sendStream.ForeachBuffer(
-                        //    buffer =>
-                        //    {
-                        //        netStream.Write(buffer.Buffer, buffer.ReadPosition, buffer.RamainingReadSize);
-                        //        buffer.ReadPosition += buffer.RamainingReadSize;
-                        //    });
+                        buffStream.Seek(0, System.IO.SeekOrigin.Begin);
+                        buffStream.CopyTo(netStream);
 
                         lock (_sendState)
                         {
@@ -554,8 +531,8 @@ namespace Core.Framework.Network
             }
             finally
             {
-                BufferPoolProvider.BufferStreamPool.Dealloc(sendStream);
-                sendStream = null;
+                BufferPoolProvider.BufferStreamPool.Dealloc(buffStream);
+                buffStream = null;
             }
         }
 

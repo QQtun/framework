@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using LogUtil;
+using System.Collections.Generic;
 
 namespace Core.Framework.Network.Buffers
 {
@@ -15,21 +16,25 @@ namespace Core.Framework.Network.Buffers
             BufferSize = size;
         }
 
+        //private int _allocCount = 0;
         public BufferBase Alloc()
         {
             lock (_pool)
             {
                 if (_pool.Count > 0)
                     return _pool.Dequeue();
+                //Debug.Log($"BufferBase AllocCount={++_allocCount}");
                 return new BufferBase(BufferSize);
             }
         }
 
+        //private int _deallocCount = 0;
         public void Dealloc(BufferBase buffer)
         {
             buffer.Reset();
             lock (_pool)
             {
+                //Debug.Log($"BufferBasePool DeallocCount={++_deallocCount}");
                 _pool.Enqueue(buffer);
             }
         }
@@ -48,21 +53,25 @@ namespace Core.Framework.Network.Buffers
             BufferBasePool = bufferPool;
         }
 
+        //private int _allocCount = 0;
         public BufferStream Alloc()
         {
             lock (_pool)
             {
                 if (_pool.Count > 0)
                     return _pool.Dequeue();
+                //Debug.Log($"BufferStreamPool AllocCount={++_allocCount}");
                 return new BufferStream(BufferBasePool);
             }
         }
 
+        //private int _deallocCount = 0;
         public void Dealloc(BufferStream stream)
         {
             stream.Clear();
             lock (_pool)
             {
+                //Debug.Log($"BufferStreamPool DeallocCount={++_deallocCount}");
                 _pool.Enqueue(stream);
             }
         }
