@@ -6,8 +6,10 @@ namespace Core.Framework.Network.Buffers
 {
     public class BufferBasePool
     {
+        public const int DefaultBufferSize = 256;
         public const int MaxBufferAllocCount = 65536;
-        public static readonly BufferBasePool Default = new BufferBasePool(256);
+
+        public static readonly BufferBasePool Default = new BufferBasePool(DefaultBufferSize);
 
         private Queue<BufferBase> _pool = new Queue<BufferBase>();
 
