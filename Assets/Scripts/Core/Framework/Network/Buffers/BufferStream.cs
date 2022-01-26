@@ -97,7 +97,7 @@ namespace Core.Framework.Network.Buffers
             }
             else if(origin == SeekOrigin.Current)
             {
-                newPos = _curIndex * BufferBasePool.BufferSize + _curOffset + offset;
+                newPos = Position + offset;
             }
             else
             {
@@ -141,11 +141,6 @@ namespace Core.Framework.Network.Buffers
         public override void SetLength(long value)
         {
             throw new NotImplementedException();
-        }
-
-        public void Write(BufferBase buffer)
-        {
-            Write(buffer.Buffer, buffer.WritePosition, buffer.RemainingWriteSize);
         }
 
         public override void Write(byte[] buffer, int offset, int count)
