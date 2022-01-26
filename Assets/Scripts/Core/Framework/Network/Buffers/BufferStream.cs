@@ -204,6 +204,7 @@ namespace Core.Framework.Network.Buffers
             _length = 0;
             _curIndex = 0;
             _curOffset = 0;
+            _readingMessageLen = null;
         }
 
         public bool CanReadContent(int contentSize)
