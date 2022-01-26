@@ -155,7 +155,12 @@ namespace Core.Framework.Network.Buffers
                 if (_pages.Count == 0
                     || _pages[_pages.Count - 1].RemainingWriteSize == 0)
                 {
-                    _pages.Add(BufferBasePool.Alloc());
+                    var newPage = BufferBasePool.Alloc();
+                    if(newPage == null)
+                    {
+                        throw new Exception("no buffer can alloc !!");
+                    }
+                    _pages.Add(newPage);
                 }
 
                 var page = _pages[_pages.Count - 1];

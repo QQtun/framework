@@ -5,6 +5,7 @@ namespace Core.Framework.Network.Buffers
 {
     public class BufferBasePool
     {
+        public const int MaxBufferAllocCount = 65536;
         public static readonly BufferBasePool Default = new BufferBasePool(256);
 
         private Queue<BufferBase> _pool = new Queue<BufferBase>();
@@ -16,14 +17,19 @@ namespace Core.Framework.Network.Buffers
             BufferSize = size;
         }
 
-        //private int _allocCount = 0;
+        private int _allocCount = 0;
         public BufferBase Alloc()
         {
             lock (_pool)
             {
                 if (_pool.Count > 0)
                     return _pool.Dequeue();
-                //Debug.Log($"BufferBase AllocCount={++_allocCount}");
+                if(_allocCount >= MaxBufferAllocCount)
+                {
+                    return null;
+                }
+                _allocCount++;
+                //Debug.Log($"BufferBase AllocCount={_allocCount}");
                 return new BufferBase(BufferSize);
             }
         }

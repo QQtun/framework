@@ -368,6 +368,12 @@ namespace Core.Framework.Network
                 if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
                 {
                     var buffer = BufferPoolProvider.BufferBasePool.Alloc();
+                    if(buffer == null)
+                    {
+                        // 沒有buffer可用，等等吧
+                        ThreadPool.QueueUserWorkItem(ReceiveMainLoop, state);
+                        return;
+                    }
                     try
                     {
                         do
