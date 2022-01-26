@@ -64,12 +64,12 @@ namespace Core.Framework.Network.Buffers
                 var page = _pages[_curIndex];
                 var len = Math.Min(count, page.RamainingReadSize);
                 len = Math.Max(0, len);
-                page.Read(buffer, offset, len);
+                var realReadLen = page.Read(buffer, offset, len);
 
-                offset += len;
-                count -= len;
-                readLen += len;
-                _curOffset += len;
+                offset += realReadLen;
+                count -= realReadLen;
+                readLen += realReadLen;
+                _curOffset += realReadLen;
 
                 if(page.RamainingReadSize == 0)
                 {
