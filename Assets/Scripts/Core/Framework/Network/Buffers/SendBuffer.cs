@@ -1,122 +1,122 @@
-﻿using Core.Framework.Network.Data;
-using System;
-using System.Collections.Generic;
-using System.IO;
+﻿//using Core.Framework.Network.Data;
+//using System;
+//using System.Collections.Generic;
+//using System.IO;
 
-namespace Core.Framework.Network.Buffers
-{
-    /// <summary>
-    /// Author: chengdundeng
-    /// Date: 2019/11/29
-    /// Desc: Send Buffer
-    /// </summary>
-    public class SendBuffer : BufferBase
-    {
-        /// <summary>
-        ///     資料長度
-        /// </summary>
-        public int DataSize { get; private set; }
+//namespace Core.Framework.Network.Buffers
+//{
+//    /// <summary>
+//    /// Author: chengdundeng
+//    /// Date: 2019/11/29
+//    /// Desc: Send Buffer
+//    /// </summary>
+//    public class SendBuffer : BufferBase
+//    {
+//        /// <summary>
+//        ///     資料長度
+//        /// </summary>
+//        public int DataSize { get; private set; }
 
-        /// <summary>
-        ///     已經發送出的長度
-        /// </summary>
-        public int SentSize { get; private set; }
+//        /// <summary>
+//        ///     已經發送出的長度
+//        /// </summary>
+//        public int SentSize { get; private set; }
 
-        /// <summary>
-        ///     尚未發送的長度
-        /// </summary>
-        public int UnsendSize
-        {
-            get { return DataSize - SentSize; }
-        }
+//        /// <summary>
+//        ///     尚未發送的長度
+//        /// </summary>
+//        public int UnsendSize
+//        {
+//            get { return DataSize - SentSize; }
+//        }
 
-        // 是否已經都送出去
-        public bool IsAllSent
-        {
-            get { return SentSize == DataSize; }
-        }
+//        // 是否已經都送出去
+//        public bool IsAllSent
+//        {
+//            get { return SentSize == DataSize; }
+//        }
 
-        public SendBuffer(int bufferSize)
-            : base(bufferSize)
-        {
-            DataSize = 0;
-            SentSize = 0;
-        }
+//        public SendBuffer(int bufferSize)
+//            : base(bufferSize)
+//        {
+//            DataSize = 0;
+//            SentSize = 0;
+//        }
 
-        public bool WriteToBuffer(Message message)
-        {
-            if (DataSize + message.Header.TotalSize > BufferSize)
-            {
-                // message 寫不進 buffer
-                return false;
-            }
+//        public bool WriteToBuffer(Message message)
+//        {
+//            if (DataSize + message.Header.TotalSize > BufferSize)
+//            {
+//                // message 寫不進 buffer
+//                return false;
+//            }
 
-            // 用stream 方法
-            MemoryStream ms = GetStream();
+//            // 用stream 方法
+//            MemoryStream ms = GetStream();
 
-            long begin = ms.Position;
+//            long begin = ms.Position;
 
-            // header
-            message.Header.Serialize(ms);
+//            // header
+//            message.Header.Serialize(ms);
 
-            // content
-            long contentBegin = ms.Position;
-            message.Serialize(ms);
+//            // content
+//            long contentBegin = ms.Position;
+//            message.Serialize(ms);
 
-            // footer
-            long now = ms.Position;
-            var footer = Footer.Create(Buffer, (int)contentBegin, (int)(now - contentBegin));
-            message.Footer = footer;
-            footer.Serialize(ms);
+//            // footer
+//            long now = ms.Position;
+//            var footer = Footer.Create(Buffer, (int)contentBegin, (int)(now - contentBegin));
+//            message.Footer = footer;
+//            footer.Serialize(ms);
 
-            ms.Flush();
+//            ms.Flush();
 
-            long end = ms.Position;
-            DataSize = (int)end;
-#if !NDEBUG
-            message.OnWriteBuffer?.Invoke(new ArraySegment<byte>(Buffer, (int)begin, (int)(end - begin)));
-#endif
-            return true;
-        }
+//            long end = ms.Position;
+//            DataSize = (int)end;
+//#if !NDEBUG
+//            message.OnWriteBuffer?.Invoke(new ArraySegment<byte>(Buffer, (int)begin, (int)(end - begin)));
+//#endif
+//            return true;
+//        }
 
-        public bool WriteToBuffer(byte[] buffer, int offset, int len, out int writeCount)
-        {
-            var remaining = BufferSize - DataSize;
+//        public bool WriteToBuffer(byte[] buffer, int offset, int len, out int writeCount)
+//        {
+//            var remaining = BufferSize - DataSize;
 
-            if (remaining == 0)
-            {
-                // message 寫不進 buffer
-                writeCount = 0;
-                return false;
-            }
+//            if (remaining == 0)
+//            {
+//                // message 寫不進 buffer
+//                writeCount = 0;
+//                return false;
+//            }
 
-            writeCount = Math.Min(remaining, len);
-            MemoryStream ms = GetStream();
-            ms.Write(buffer, offset, writeCount);
-            ms.Flush();
+//            writeCount = Math.Min(remaining, len);
+//            MemoryStream ms = GetStream();
+//            ms.Write(buffer, offset, writeCount);
+//            ms.Flush();
 
-            long end = ms.Position;
-            DataSize = (int)end;
-            return true;
-        }
+//            long end = ms.Position;
+//            DataSize = (int)end;
+//            return true;
+//        }
 
-        public void IncreaseSentSize(int sentSize)
-        {
-            SentSize += sentSize;
+//        public void IncreaseSentSize(int sentSize)
+//        {
+//            SentSize += sentSize;
 
-            if (SentSize > DataSize)
-            {
-                throw new Exception("SentSize > DataSize");
-            }
-        }
+//            if (SentSize > DataSize)
+//            {
+//                throw new Exception("SentSize > DataSize");
+//            }
+//        }
 
-        public void Reset()
-        {
-            DataSize = 0;
-            SentSize = 0;
-            MemoryStream ms = GetStream();
-            ms.Seek(0, SeekOrigin.Begin);
-            ms.SetLength(0);
-        }
-    }
-}
+//        public void Reset()
+//        {
+//            DataSize = 0;
+//            SentSize = 0;
+//            MemoryStream ms = GetStream();
+//            ms.Seek(0, SeekOrigin.Begin);
+//            ms.SetLength(0);
+//        }
+//    }
+//}

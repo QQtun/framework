@@ -115,8 +115,8 @@ public static class GenConfig
     {
         typeof(Core.Game.UI.UIName),
         typeof(Core.Game.Log.LogTagEx),
-        typeof(Core.Game.Network.GameConnection),
-        typeof(Core.Game.Network.LoginParam),
+        //typeof(Core.Game.Network.GameConnection),
+        //typeof(Core.Game.Network.LoginParam),
         typeof(Core.Game.Network.Session),
         typeof(Core.Game.Scene.GameScene),
     };
@@ -179,9 +179,9 @@ public static class GenConfig
                 typeof(Core.Framework.Module.IModule),
                 typeof(Core.Framework.Module.INetworkModule),
                 typeof(Action<UnityEngine.Vector2>),
-                typeof(Core.Game.Network.GameConnection.OnConnect),
-                typeof(Core.Game.Network.GameConnection.OnDisconnect),
-                typeof(Core.Game.Network.GameConnection.OnReceiveMessage),
+                //typeof(Core.Game.Network.GameConnection.OnConnect),
+                //typeof(Core.Game.Network.GameConnection.OnDisconnect),
+                //typeof(Core.Game.Network.GameConnection.OnReceiveMessage),
                 typeof(Core.Game.Logic.ISceneObject),
             };
 

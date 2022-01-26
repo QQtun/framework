@@ -2,30 +2,30 @@
 
 namespace Core.Framework.Network.Buffers
 {
-    public class ContentBufferPool
+    public class BufferBasePool
     {
-        public static readonly ContentBufferPool Default = new ContentBufferPool(256);
+        public static readonly BufferBasePool Default = new BufferBasePool(256);
 
-        private Queue<ContentBuffer> _pool = new Queue<ContentBuffer>();
+        private Queue<BufferBase> _pool = new Queue<BufferBase>();
 
         public int BufferSize { get; }
 
-        public ContentBufferPool(int size)
+        public BufferBasePool(int size)
         {
             BufferSize = size;
         }
 
-        public ContentBuffer Alloc()
+        public BufferBase Alloc()
         {
-            lock(_pool)
+            lock (_pool)
             {
                 if (_pool.Count > 0)
                     return _pool.Dequeue();
-                return new ContentBuffer(BufferSize);
+                return new BufferBase(BufferSize);
             }
         }
 
-        public void Dealloc(ContentBuffer buffer)
+        public void Dealloc(BufferBase buffer)
         {
             buffer.Reset();
             lock (_pool)
@@ -35,128 +35,30 @@ namespace Core.Framework.Network.Buffers
         }
     }
 
-    public class HeaderBufferPool
+    public class BufferStreamPool
     {
-        public static readonly HeaderBufferPool Default = new HeaderBufferPool();
+        public static readonly BufferStreamPool Default = new BufferStreamPool(BufferBasePool.Default);
 
-        private Queue<HeaderBuffer> _pool = new Queue<HeaderBuffer>();
+        private Queue<BufferStream> _pool = new Queue<BufferStream>();
 
-        //public int BufferSize { get; }
+        public BufferBasePool BufferBasePool { get; }
 
-        public HeaderBufferPool()
+        public BufferStreamPool(BufferBasePool bufferPool)
         {
+            BufferBasePool = bufferPool;
         }
 
-        public HeaderBuffer Alloc()
+        public BufferStream Alloc()
         {
             lock (_pool)
             {
                 if (_pool.Count > 0)
                     return _pool.Dequeue();
-                return new HeaderBuffer();
+                return new BufferStream(BufferBasePool);
             }
         }
 
-        public void Dealloc(HeaderBuffer buffer)
-        {
-            buffer.Reset();
-            lock(_pool)
-            {
-                _pool.Enqueue(buffer);
-            }
-        }
-    }
-
-    public class FooterBufferPool
-    {
-        public static readonly FooterBufferPool Default = new FooterBufferPool();
-
-        private Queue<FooterBuffer> _pool = new Queue<FooterBuffer>();
-
-        //public int BufferSize { get; }
-
-        public FooterBufferPool()
-        {
-        }
-
-        public FooterBuffer Alloc()
-        {
-            lock (_pool)
-            {
-                if (_pool.Count > 0)
-                    return _pool.Dequeue();
-                return new FooterBuffer();
-            }
-        }
-
-        public void Dealloc(FooterBuffer buffer)
-        {
-            buffer.Reset();
-            lock (_pool)
-            {
-                _pool.Enqueue(buffer);
-            }
-        }
-    }
-
-    public class SendBufferPool
-    {
-        public static readonly SendBufferPool Default = new SendBufferPool(
-            ContentBufferPool.Default.BufferSize + Data.Header.HeaderSize + Data.Footer.FooterSize);
-
-        private Queue<SendBuffer> _pool = new Queue<SendBuffer>();
-
-        public int BufferSize { get; }
-
-        public SendBufferPool(int size)
-        {
-            BufferSize = size;
-        }
-
-        public SendBuffer Alloc()
-        {
-            lock (_pool)
-            {
-                if (_pool.Count > 0)
-                    return _pool.Dequeue();
-                return new SendBuffer(BufferSize);
-            }
-        }
-
-        public void Dealloc(SendBuffer buffer)
-        {
-            buffer.Reset();
-            lock (_pool)
-            {
-                _pool.Enqueue(buffer);
-            }
-        }
-    }
-
-    public class SendStreamPool
-    {
-        public static readonly SendStreamPool Default = new SendStreamPool(SendBufferPool.Default);
-
-        private Queue<SendBufferStream> _pool = new Queue<SendBufferStream>();
-
-        public SendBufferPool SendBufferPool { get; }
-
-        public SendStreamPool(SendBufferPool bufferPool)
-        {
-            SendBufferPool = bufferPool;
-        }
-
-        public SendBufferStream Alloc()
-        {
-            lock (_pool)
-            {
-                if (_pool.Count > 0)
-                    return _pool.Dequeue();
-                return new SendBufferStream(SendBufferPool);
-            }
-        }
-
-        public void Dealloc(SendBufferStream stream)
+        public void Dealloc(BufferStream stream)
         {
             stream.Clear();
             lock (_pool)
@@ -166,24 +68,17 @@ namespace Core.Framework.Network.Buffers
         }
     }
 
-    public class BufferPool
+    public class BufferPoolProvider
     {
-        public static readonly BufferPool Default = new BufferPool(
-            HeaderBufferPool.Default, ContentBufferPool.Default, FooterBufferPool.Default, SendBufferPool.Default);
+        public static readonly BufferPoolProvider Default = new BufferPoolProvider(BufferBasePool.Default);
 
-        public ContentBufferPool ContentBufferPool { get; private set; }
-        public HeaderBufferPool HeaderBufferPool { get; private set; }
-        public FooterBufferPool FooterBufferPool { get; private set; }
-        public SendBufferPool SendBufferPool { get; private set; }
-        public SendStreamPool SendStreamPool { get; private set; }
+        public BufferBasePool BufferBasePool { get; private set; }
+        public BufferStreamPool BufferStreamPool { get; private set; }
 
-        public BufferPool(HeaderBufferPool header, ContentBufferPool content, FooterBufferPool footer, SendBufferPool sendBuffer)
+        public BufferPoolProvider(BufferBasePool bufferPool)
         {
-            HeaderBufferPool = header;
-            ContentBufferPool = content;
-            FooterBufferPool = footer;
-            SendBufferPool = sendBuffer;
-            SendStreamPool = new SendStreamPool(sendBuffer);
+            BufferBasePool = bufferPool;
+            BufferStreamPool = new BufferStreamPool(BufferBasePool);
         }
     }
 }

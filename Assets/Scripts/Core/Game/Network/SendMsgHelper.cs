@@ -22,7 +22,7 @@ namespace Core.Game.Network
 
         private static void Send(ServerCmd msgId, IMessage req)
         {
-            GameConnection.Instance.Send(msgId, req);
+            //GameConnection.Instance.Send(msgId, req);
         }
 
         public static void SendRolePosition(int map, Vector2Int pos)

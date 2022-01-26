@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 
 namespace Core.Framework.Network.Buffers
 {
@@ -9,23 +10,53 @@ namespace Core.Framework.Network.Buffers
     /// </summary>
     public class BufferBase
     {
-        private MemoryStream _memoryStream;
-
-        public int BufferSize { get; private set; }
+        public int BufferSize => Buffer.Length;
 
         public byte[] Buffer { get; private set; }
 
+        public int DataSize { get; set; }
+
+        public int ReadPosition { get; set; }
+
+        public int WritePosition { get; set; }
+
+        public int RamainingReadSize => DataSize - ReadPosition;
+
+        public int RemainingWriteSize => BufferSize - WritePosition;
+
         public BufferBase(int bufferSize)
         {
-            BufferSize = bufferSize;
             Buffer = new byte[bufferSize];
-            _memoryStream = new MemoryStream(Buffer);
-            _memoryStream.SetLength(bufferSize);
         }
 
-        public MemoryStream GetStream()
+        public int Write(byte[] buffer, int offset, int len)
         {
-            return _memoryStream;
+            var writeSize = Math.Min(RemainingWriteSize, len);
+            if (writeSize == 0)
+                return writeSize;
+
+            Array.Copy(buffer, offset, Buffer, WritePosition, writeSize);
+            WritePosition += writeSize;
+            DataSize += writeSize;
+            return writeSize;
+        }
+
+        public int Read(byte[] buffer, int offset, int len)
+        {
+            var readSize = Math.Min(RamainingReadSize, len);
+            if (readSize == 0)
+                return readSize;
+
+            Array.Copy(Buffer, ReadPosition, buffer, offset, readSize);
+            ReadPosition += readSize;
+            return readSize;
+        }
+
+        public void Reset()
+        {
+            DataSize = 0;
+            WritePosition = 0;
+            ReadPosition = 0;
         }
     }
 }

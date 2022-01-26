@@ -13,22 +13,22 @@ namespace Core.Framework.Network
     {
         private static readonly byte[] ZeroBuffer = new byte[0];
 
-        private class ContentState
-        {
-            public Header header;
-            public int receiveSize;
-            public List<ContentBuffer> buffers = new List<ContentBuffer>();
+        //private class ContentState
+        //{
+        //    public Header header;
+        //    public int receiveSize;
+        //    public List<ContentBuffer> buffers = new List<ContentBuffer>();
 
-            public ContentBuffer LastBuffer
-            {
-                get
-                {
-                    if (buffers.Count == 0)
-                        return null;
-                    return buffers[buffers.Count - 1];
-                }
-            }
-        }
+        //    public ContentBuffer LastBuffer
+        //    {
+        //        get
+        //        {
+        //            if (buffers.Count == 0)
+        //                return null;
+        //            return buffers[buffers.Count - 1];
+        //        }
+        //    }
+        //}
 
         private class SendState
         {
@@ -65,13 +65,11 @@ namespace Core.Framework.Network
             public TcpClient tcpClient;
             public NetworkStream netStream;
 
-            public HeaderBuffer headerBuffer;
-            public ContentState contentState = new ContentState();
-            public FooterBuffer footerBuffer;
-            public Message msg;
-
-            public SendBufferStream bufferStream;
+            public BufferStream bufferStream;
             public RecvState recvState;
+
+            public Header header;
+            public Message msg;
         }
 
         private TcpState _tcpState;
@@ -85,7 +83,7 @@ namespace Core.Framework.Network
         private SendState _sendState;
 
         public MessageFactory MessageFactory { get; }
-        private BufferPool BufferPool { get; }
+        private BufferPoolProvider BufferPoolProvider { get; }
         public EndPoint RemoteEndPoint
         {
             get
@@ -108,10 +106,10 @@ namespace Core.Framework.Network
             }
         }
 
-        protected TcpClientBase(MessageFactory factory, BufferPool pool)
+        protected TcpClientBase(MessageFactory factory, BufferPoolProvider pool)
         {
             MessageFactory = factory;
-            BufferPool = pool;
+            BufferPoolProvider = pool;
 
             _connectState = new ConnectState();
             _recvMsgs = new List<Message>();
@@ -124,7 +122,7 @@ namespace Core.Framework.Network
             MessageHandlerUtil.Init(GetType());
         }
 
-        protected TcpClientBase(TcpClient client, MessageFactory factory, BufferPool pool)
+        protected TcpClientBase(TcpClient client, MessageFactory factory, BufferPoolProvider pool)
             : this(factory, pool)
         {
             _tcpState = new TcpState();
@@ -180,27 +178,9 @@ namespace Core.Framework.Network
 
                 _tcpState.connecting = false;
 
-                if(_tcpState.headerBuffer != null)
-                {
-                    BufferPool.HeaderBufferPool.Dealloc(_tcpState.headerBuffer);
-                    _tcpState.headerBuffer = null;
-                }
-                if (_tcpState.contentState.buffers.Count > 0)
-                {
-                    for (int i = 0; i < _tcpState.contentState.buffers.Count; i++)
-                    {
-                        BufferPool.ContentBufferPool.Dealloc(_tcpState.contentState.buffers[i]);
-                    }
-                    _tcpState.contentState.buffers.Clear();
-                }
-                if(_tcpState.footerBuffer != null)
-                {
-                    BufferPool.FooterBufferPool.Dealloc(_tcpState.footerBuffer);
-                    _tcpState.footerBuffer = null;
-                }
                 if(_tcpState.bufferStream != null)
                 {
-                    BufferPool.SendStreamPool.Dealloc(_tcpState.bufferStream);
+                    BufferPoolProvider.BufferStreamPool.Dealloc(_tcpState.bufferStream);
                     _tcpState.bufferStream = null;
                 }
             }
@@ -321,7 +301,7 @@ namespace Core.Framework.Network
         {
             lock(_tcpState)
             {
-                _tcpState.bufferStream = BufferPool.SendStreamPool.Alloc();
+                _tcpState.bufferStream = BufferPoolProvider.BufferStreamPool.Alloc();
                 _tcpState.recvState = RecvState.Header;
             }
             lock (_connectState)
@@ -356,7 +336,7 @@ namespace Core.Framework.Network
                     lock (tcpState)
                     {
                         tcpState.netStream = tcpClient.GetStream();
-                        tcpState.bufferStream = BufferPool.SendStreamPool.Alloc();
+                        tcpState.bufferStream = BufferPoolProvider.BufferStreamPool.Alloc();
                         tcpState.recvState = RecvState.Header;
                     }
                     lock (_connectState)
@@ -390,7 +370,7 @@ namespace Core.Framework.Network
             TcpState tcpState = state as TcpState;
             TcpClient tcpClient;
             NetworkStream netStream;
-            SendBufferStream bufferStream;
+            BufferStream bufferStream;
             lock (tcpState)
             {
                 if (tcpState.tcpClient == null)
@@ -404,22 +384,28 @@ namespace Core.Framework.Network
             {
                 if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
                 {
-                    var buffer = BufferPool.SendBufferPool.Alloc();
-                    do
+                    var buffer = BufferPoolProvider.BufferBasePool.Alloc();
+                    try
                     {
-                        buffer.Reset();
-                        var readCount = Math.Min(tcpClient.Available, buffer.BufferSize);
-                        var realReadCount = netStream.Read(buffer.Buffer, 0, readCount);
-                        if (realReadCount == 0)
+                        do
                         {
-                            BufferPool.SendBufferPool.Dealloc(buffer);
-                            Disconnect(DisconnectReason.Remote);
-                            return;
+                            buffer.Reset();
+                            var readCount = Math.Min(tcpClient.Available, buffer.BufferSize);
+                            var realReadCount = netStream.Read(buffer.Buffer, 0, readCount);
+                            if (realReadCount == 0)
+                            {
+                                Disconnect(DisconnectReason.Remote);
+                                return;
+                            }
+                            bufferStream.Write(buffer.Buffer, 0, realReadCount);
                         }
-                        bufferStream.Write(buffer.Buffer, 0, realReadCount);
+                        while (tcpClient.Available > 0);
                     }
-                    while (tcpClient.Available > 0);
-                    BufferPool.SendBufferPool.Dealloc(buffer);
+                    finally
+                    {
+                        BufferPoolProvider.BufferBasePool.Dealloc(buffer);
+                        bufferStream.Seek(0, System.IO.SeekOrigin.Begin);
+                    }
 
                     lock (tcpState)
                     {
@@ -438,8 +424,7 @@ namespace Core.Framework.Network
                                     }
                                     else
                                     {
-                                        tcpState.contentState.header = header;
-                                        tcpState.contentState.receiveSize = 0;
+                                        tcpState.header = header;
                                         tcpState.recvState = RecvState.Content;
                                     }
                                 }
@@ -451,9 +436,9 @@ namespace Core.Framework.Network
 
                             if (tcpState.recvState == RecvState.Content)
                             {
-                                if (bufferStream.CanReadContent(tcpState.contentState.header.ContentSize))
+                                if (bufferStream.CanReadContent(tcpState.header.ContentSize))
                                 {
-                                    var msg = bufferStream.ReadMessage(MessageFactory, tcpState.contentState.header);
+                                    var msg = bufferStream.ReadMessage(MessageFactory, tcpState.header);
                                     tcpState.msg = msg;
                                     tcpState.recvState = RecvState.Footer;
                                 }
@@ -499,207 +484,6 @@ namespace Core.Framework.Network
             }
         }
 
-        //private void ReceiveHeaderMainLoopThreaded(object state)
-        //{
-        //    TcpState tcpState = state as TcpState;
-        //    TcpClient tcpClient;
-        //    lock (tcpState)
-        //    {
-        //        if (tcpState.tcpClient == null)
-        //            return;
-        //        tcpClient = tcpState.tcpClient;
-        //    }
-
-        //    try
-        //    {
-        //        lock (tcpState)
-        //        {
-        //            if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
-        //            {
-        //                if (tcpState.headerBuffer == null)
-        //                    tcpState.headerBuffer = BufferPool.HeaderBufferPool.Alloc();
-
-        //                var readCount = Math.Min(tcpClient.Available, tcpState.headerBuffer.RemainingBufferSize);
-
-        //                var realReadCount = tcpState.netStream.Read(
-        //                    tcpState.headerBuffer.Buffer, tcpState.headerBuffer.WriteStartPosition, readCount);
-        //                if (realReadCount == 0)
-        //                {
-        //                    Disconnect(DisconnectReason.Remote);
-        //                    return;
-        //                }
-
-        //                tcpState.headerBuffer.IncreaseReceivedSize(realReadCount);
-        //                if (tcpState.headerBuffer.IsEnough)
-        //                {
-        //                    var header = tcpState.headerBuffer.CreateHeader();
-        //                    BufferPool.HeaderBufferPool.Dealloc(tcpState.headerBuffer);
-        //                    tcpState.headerBuffer = null;
-        //                    if (header.ContentSize == 0)
-        //                    {
-        //                        var msg = MessageFactory.CreateMessage(header, ZeroBuffer, 0);
-        //                        tcpState.msg = msg;
-        //                        ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
-        //                    }
-        //                    else
-        //                    {
-        //                        tcpState.contentState.header = header;
-        //                        tcpState.contentState.receiveSize = 0;
-
-        //                        ThreadPool.QueueUserWorkItem(ReceiveContentMainLoopThreaded, state);
-        //                    }
-        //                }
-        //                else
-        //                {
-        //                    ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
-        //                }
-        //            }
-        //            else
-        //            {
-        //                ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.LogError(ex);
-        //        TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
-        //    }
-        //}
-
-        //private void ReceiveContentMainLoopThreaded(object state)
-        //{
-        //    TcpState tcpState = state as TcpState;
-        //    TcpClient tcpClient;
-        //    lock (tcpState)
-        //    {
-        //        if (tcpState.tcpClient == null)
-        //            return;
-        //        tcpClient = tcpState.tcpClient;
-        //    }
-
-        //    try
-        //    {
-        //        lock (tcpState)
-        //        {
-        //            if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
-        //            {
-        //                if (tcpState.contentState.LastBuffer == null
-        //                    || tcpState.contentState.LastBuffer.RemainingBufferSize == 0)
-        //                {
-        //                    tcpState.contentState.buffers.Add(BufferPool.ContentBufferPool.Alloc());
-        //                }
-
-        //                var recvSize = Math.Min(tcpState.contentState.LastBuffer.RemainingBufferSize,
-        //                    tcpState.contentState.header.ContentSize - tcpState.contentState.receiveSize);
-        //                recvSize = Math.Min(tcpClient.Available, recvSize);
-                        
-        //                var realReadCount = tcpState.netStream.Read(
-        //                    tcpState.contentState.LastBuffer.Buffer, tcpState.contentState.LastBuffer.WriteStartPosition, recvSize);
-        //                if (realReadCount == 0)
-        //                {
-        //                    Disconnect(DisconnectReason.Remote);
-        //                    return;
-        //                }
-
-        //                tcpState.contentState.LastBuffer.IncreaseReceivedSize(realReadCount);
-        //                tcpState.contentState.receiveSize += realReadCount;
-
-        //                if (tcpState.contentState.header.ContentSize == tcpState.contentState.receiveSize)
-        //                {
-        //                    var msg = MessageFactory.CreateMessage(tcpState.contentState.header, tcpState.contentState.buffers);
-        //                    tcpState.msg = msg;
-
-        //                    foreach (var buf in tcpState.contentState.buffers)
-        //                    {
-        //                        BufferPool.ContentBufferPool.Dealloc(buf);
-        //                    }
-        //                    tcpState.contentState.buffers.Clear();
-
-        //                    ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
-        //                }
-        //                else
-        //                {
-        //                    ThreadPool.QueueUserWorkItem(ReceiveContentMainLoopThreaded, state);
-        //                }
-        //            }
-        //            else
-        //            {
-        //                ThreadPool.QueueUserWorkItem(ReceiveContentMainLoopThreaded, state);
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.LogError(ex);
-        //        TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
-        //    }
-        //}
-
-        //private void ReceiveFooterMainLoopThreaded(object state)
-        //{
-        //    TcpState tcpState = state as TcpState;
-        //    TcpClient tcpClient;
-        //    lock (tcpState)
-        //    {
-        //        if (tcpState.tcpClient == null)
-        //            return;
-        //        tcpClient = tcpState.tcpClient;
-        //    }
-
-        //    try
-        //    {
-        //        lock (tcpState)
-        //        {
-        //            if (tcpClient.Client.Poll(0, SelectMode.SelectRead))
-        //            {
-        //                if (tcpState.footerBuffer == null)
-        //                    tcpState.footerBuffer = BufferPool.FooterBufferPool.Alloc();
-
-        //                var readCount = Math.Min(tcpClient.Available, tcpState.footerBuffer.RemainingBufferSize);
-
-        //                var realReadCount = tcpState.netStream.Read(
-        //                    tcpState.footerBuffer.Buffer, tcpState.footerBuffer.WriteStartPosition, readCount);
-        //                if (realReadCount == 0)
-        //                {
-        //                    Disconnect(DisconnectReason.Remote);
-        //                    return;
-        //                }
-
-        //                tcpState.footerBuffer.IncreaseReceivedSize(realReadCount);
-
-        //                if (tcpState.footerBuffer.IsEnough)
-        //                {
-        //                    var footer = tcpState.footerBuffer.CreateFooter();
-        //                    tcpState.msg.Footer = footer;
-        //                    lock (_recvMsgs)
-        //                    {
-        //                        _recvMsgs.Add(tcpState.msg);
-        //                    }
-
-        //                    BufferPool.FooterBufferPool.Dealloc(tcpState.footerBuffer);
-        //                    tcpState.footerBuffer = null;
-
-        //                    ThreadPool.QueueUserWorkItem(ReceiveHeaderMainLoopThreaded, state);
-        //                }
-        //                else
-        //                {
-        //                    ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
-        //                }
-        //            }
-        //            else
-        //            {
-        //                ThreadPool.QueueUserWorkItem(ReceiveFooterMainLoopThreaded, state);
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.LogError(ex);
-        //        TryDisconnect(tcpState, tcpClient, DisconnectReason.Network);
-        //    }
-        //}
-
         private void SendMainLoopThreaded(object state)
         {
             TcpState tcpState = state as TcpState;
@@ -715,7 +499,7 @@ namespace Core.Framework.Network
                 netStream = tcpState.netStream;
             }
 
-            var sendStream = BufferPool.SendStreamPool.Alloc();
+            var sendStream = BufferPoolProvider.BufferStreamPool.Alloc();
             try
             {
                 if (tcpClient.Client.Poll(0, SelectMode.SelectWrite))
@@ -734,12 +518,14 @@ namespace Core.Framework.Network
                             _sendState.sendMsgs.Clear();
                         }
 
-                        sendStream.ForeachBuffer(
-                            sendBuffer =>
-                            {
-                                netStream.Write(sendBuffer.Buffer, sendBuffer.SentSize, sendBuffer.UnsendSize);
-                                sendBuffer.IncreaseSentSize(sendBuffer.UnsendSize);
-                            });
+                        sendStream.Seek(0, System.IO.SeekOrigin.Begin);
+                        sendStream.CopyTo(netStream);
+                        //sendStream.ForeachBuffer(
+                        //    buffer =>
+                        //    {
+                        //        netStream.Write(buffer.Buffer, buffer.ReadPosition, buffer.RamainingReadSize);
+                        //        buffer.ReadPosition += buffer.RamainingReadSize;
+                        //    });
 
                         lock (_sendState)
                         {
@@ -768,7 +554,7 @@ namespace Core.Framework.Network
             }
             finally
             {
-                BufferPool.SendStreamPool.Dealloc(sendStream);
+                BufferPoolProvider.BufferStreamPool.Dealloc(sendStream);
                 sendStream = null;
             }
         }
@@ -791,7 +577,7 @@ namespace Core.Framework.Network
         public TcpServerBase<T> Server { get; }
 
         public TcpClientBaseForServer(TcpServerBase<T> server, TcpClient client)
-            : base(client, server.MessageFactory, server.BufferPool)
+            : base(client, server.MessageFactory, server.BufferPoolProvider)
         {
             Server = server;
         }

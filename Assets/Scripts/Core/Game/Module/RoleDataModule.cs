@@ -51,10 +51,10 @@ namespace Core.Game.Module
 
         public override void OnConnected()
         {
-            var req = new RoleList();
-            req.Userid = GameConnection.Instance.CurrentSession.userID;
-            req.ZoneId = GameConnection.Instance.CurrentSession.gameZoneID;
-            Send(ServerCmd.RoleList, req);
+            //var req = new RoleList();
+            //req.Userid = GameConnection.Instance.CurrentSession.userID;
+            //req.ZoneId = GameConnection.Instance.CurrentSession.gameZoneID;
+            //Send(ServerCmd.RoleList, req);
         }
 
         public override void OnDestroy()
@@ -110,28 +110,28 @@ namespace Core.Game.Module
 
         public void CreateRole()
         {
-            var req = new CreateRole();
-            req.UserId = GameConnection.Instance.CurrentSession.userID;
-            req.UserName = GameConnection.Instance.CurrentSession.userName;
-            req.ZoneId = GameConnection.Instance.CurrentSession.gameZoneID;
-            // TODO
-            req.Occupation = 1;
-            req.Sex = 1;
-            req.Name = "測試名稱";
-            req.PlatformId = SystemInfo.deviceModel;
-            req.ModleType.Add(1);
-            req.ModleType.Add(1);
-            req.ModleType.Add(1);
-            req.ModleType.Add(1);
-            Send(ServerCmd.CreateRole, req);
+            //var req = new CreateRole();
+            //req.UserId = GameConnection.Instance.CurrentSession.userID;
+            //req.UserName = GameConnection.Instance.CurrentSession.userName;
+            //req.ZoneId = GameConnection.Instance.CurrentSession.gameZoneID;
+            //// TODO
+            //req.Occupation = 1;
+            //req.Sex = 1;
+            //req.Name = "測試名稱";
+            //req.PlatformId = SystemInfo.deviceModel;
+            //req.ModleType.Add(1);
+            //req.ModleType.Add(1);
+            //req.ModleType.Add(1);
+            //req.ModleType.Add(1);
+            //Send(ServerCmd.CreateRole, req);
         }
 
         public void InitGame(int roleId)
         {
-            var req = new InitGame();
-            req.UserId = GameConnection.Instance.CurrentSession.userID;
-            req.RoleId = roleId;
-            Send(ServerCmd.InitGame, req);
+            //var req = new InitGame();
+            //req.UserId = GameConnection.Instance.CurrentSession.userID;
+            //req.RoleId = roleId;
+            //Send(ServerCmd.InitGame, req);
         }
     }
 }

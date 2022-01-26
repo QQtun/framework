@@ -32,9 +32,9 @@ namespace Core.Framework.Module
             base.Init();
 
             mStarted = false;
-            GameConnection.Instance.OnConnected += OnConnected;
-            GameConnection.Instance.OnReceivedMessage += OnReceivedMessage;
-            GameConnection.Instance.OnDisconnected += OnDisconnected;
+            //GameConnection.Instance.OnConnected += OnConnected;
+            //GameConnection.Instance.OnReceivedMessage += OnReceivedMessage;
+            //GameConnection.Instance.OnDisconnected += OnDisconnected;
 
             mModuleConnectedInit = false;
             mModuleGameInit = false;
@@ -179,7 +179,7 @@ namespace Core.Framework.Module
 
         public void Send(int moduleId, Message msg)
         {
-            GameConnection.Instance.Send(msg);
+            //GameConnection.Instance.Send(msg);
 
             if(ModuleInitializing)
             {
@@ -194,7 +194,7 @@ namespace Core.Framework.Module
 
         public void Send(int moduleId, int msgId, Google.Protobuf.IMessage msg)
         {
-            GameConnection.Instance.Send(msgId, msg);
+            //GameConnection.Instance.Send(msgId, msg);
 
             if(ModuleInitializing)
             {
@@ -350,15 +350,15 @@ namespace Core.Framework.Module
             }
             iter.Dispose();
 
-            if (GameConnection.Instance != null && GameConnection.Instance.CanSendToGame)
-            {
-                var iter2 = mIdToNetModule.GetEnumerator();
-                while(iter2.MoveNext())
-                {
-                    iter2.Current.Value.OnUpdate();
-                }
-                iter2.Dispose();
-            }
+            //if (GameConnection.Instance != null && GameConnection.Instance.CanSendToGame)
+            //{
+            //    var iter2 = mIdToNetModule.GetEnumerator();
+            //    while(iter2.MoveNext())
+            //    {
+            //        iter2.Current.Value.OnUpdate();
+            //    }
+            //    iter2.Dispose();
+            //}
         }
 
         private IModule CreateModule(Type type)

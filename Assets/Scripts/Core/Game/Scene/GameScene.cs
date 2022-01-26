@@ -53,7 +53,7 @@ namespace Core.Game.Scene
             SceneManager.Instance.AddEntry(this);
 
             ScheduleManager.Instance.Schedule(0.5f, SendLeaderMoving, this);
-            GameConnection.Instance.OnReceivedMessage += OnReceiveMessage;
+            //GameConnection.Instance.OnReceivedMessage += OnReceiveMessage;
         }
 
         private void OnDestroy()
@@ -110,7 +110,7 @@ namespace Core.Game.Scene
                     UIManager.Instance.Open(UIName.MainUI);
                     InitLeader();
                     Addressables.InstantiateAsync($"Assets/PublicAssets/Test/TestBundle/yw_fqgc.prefab");
-                    GameConnection.Instance.Send(ServerCmd.PlayGame, new PlayGame());
+                    //GameConnection.Instance.Send(ServerCmd.PlayGame, new PlayGame());
                     mPlayGame = true;
                     // TODO ....
                     mState.Transit(InitState.Waiting);

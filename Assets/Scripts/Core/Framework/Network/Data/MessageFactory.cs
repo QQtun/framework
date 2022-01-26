@@ -190,19 +190,19 @@ namespace Core.Framework.Network.Data
         /// <param name="header">封包標頭, 包含封包編號與長度</param>
         /// <param name="contentBuffer">binary資料來源</param>
         /// <returns></returns>
-        public Message CreateMessage(Header header, ContentBuffer contentBuffer)
-        {
-            if (contentBuffer == null)
-            {
-                return CreateMessage(header, null, 0);
-            }
-            else
-            {
-                MemoryStream ms = contentBuffer.GetStream();
-                ms.SetLength(contentBuffer.ReceivedSize);
-                return CreateMessage(header, ms);
-            }
-        }
+        //public Message CreateMessage(Header header, ContentBuffer contentBuffer)
+        //{
+        //    if (contentBuffer == null)
+        //    {
+        //        return CreateMessage(header, null, 0);
+        //    }
+        //    else
+        //    {
+        //        MemoryStream ms = contentBuffer.GetStream();
+        //        ms.SetLength(contentBuffer.ReceivedSize);
+        //        return CreateMessage(header, ms);
+        //    }
+        //}
 
         /// <summary>
         ///     創建封包實體
@@ -231,7 +231,7 @@ namespace Core.Framework.Network.Data
                 }
                 else
                 {
-                    Debug.LogWarningFormat("unknown message id: {0}", header.MessageId, LogTag.Network);
+                    Debug.LogWarningFormat("unknown message id: {0}", MessageNameConverter.Convert(header.MessageId), LogTag.Network);
                     msg = RawDataMessage.Allocate(header);
                 }
                 if (msg != null && data != null)
@@ -287,7 +287,7 @@ namespace Core.Framework.Network.Data
                 }
                 else
                 {
-                    Debug.LogWarningFormat("unknown message id: {0}", messageId, LogTag.Network);
+                    Debug.LogWarningFormat("unknown message id: {0}", MessageNameConverter.Convert(messageId), LogTag.Network);
                     msg = RawDataMessage.Allocate(messageId);
                 }
                 if (msg != null && data != null)
@@ -324,7 +324,7 @@ namespace Core.Framework.Network.Data
                 }
                 else
                 {
-                    Debug.LogWarningFormat("unknown message id: {0}", messageId, LogTag.Network);
+                    Debug.LogWarningFormat("unknown message id: {0}", MessageNameConverter.Convert(messageId), LogTag.Network);
                     msg = RawDataMessage.Allocate(messageId);
                 }
                 if (msg != null && ms != null)
@@ -361,7 +361,7 @@ namespace Core.Framework.Network.Data
                 }
                 else
                 {
-                    Debug.LogWarningFormat("unknown message id: {0} [{1}]", header.MessageId,
+                    Debug.LogWarningFormat("unknown message id: {0}", 
                         MessageNameConverter.Convert(header.MessageId),
                         LogTag.Network);
                     msg = RawDataMessage.Allocate(header);
@@ -371,39 +371,6 @@ namespace Core.Framework.Network.Data
                     msg.Deserialize(this, ms);
                 }
                 return msg;
-            }
-        }
-
-        /// <summary>
-        ///     創建封包實體
-        /// </summary>
-        /// <param name="header">封包標頭, 包含封包編號與長度</param>
-        /// <param name="contentBuffer">binary資料來源</param>
-        /// <returns></returns>
-        public Message CreateMessage(Header header, List<ContentBuffer> buffers)
-        {
-            if (buffers == null || buffers.Count == 0)
-            {
-                return CreateMessage(header, null, 0);
-            }
-            else
-            {
-                lock(_tmpMS)
-                {
-                    _tmpMS.Seek(0, SeekOrigin.Begin);
-                    _tmpMS.Position = 0;
-                    _tmpMS.SetLength(0);
-
-                    foreach (var buf in buffers)
-                    {
-                        _tmpMS.Write(buf.Buffer, buf.ReadStartPosition, buf.ReceivedSize);
-                    }
-
-                    _tmpMS.Seek(0, SeekOrigin.Begin);
-                    _tmpMS.Position = 0;
-                    _tmpMS.SetLength(header.ContentSize);
-                    return CreateMessage(header, _tmpMS);
-                }
             }
         }
     }

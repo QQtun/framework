@@ -129,7 +129,7 @@ namespace Core.Framework.Network.Data
             return ret;
         }
 
-        public static Footer Create(List<SendBuffer> buffers)
+        public static Footer Create(List<BufferBase> buffers)
         {
             uint sum = 0;
             uint zeroOffset = 0x30; // ASCII '0'

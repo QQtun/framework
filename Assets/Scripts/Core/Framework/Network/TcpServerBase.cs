@@ -17,17 +17,17 @@ namespace Core.Framework.Network
         private TcpAccepter _accepter;
 
         public MessageFactory MessageFactory { get; }
-        public BufferPool BufferPool { get; }
+        public BufferPoolProvider BufferPoolProvider { get; }
 
         private List<TcpClientBase> _tmpList;
 
         private LinkedList<TcpClientBase> _clients;
         private Dictionary<TcpClientBase, LinkedListNode<TcpClientBase>> _clientToNodeDic;
 
-        protected TcpServerBase(MessageFactory factory, BufferPool pool)
+        protected TcpServerBase(MessageFactory factory, BufferPoolProvider pool)
         {
             MessageFactory = factory;
-            BufferPool = pool;
+            BufferPoolProvider = pool;
 
             _accepter = new TcpAccepter();
             _clients = new LinkedList<TcpClientBase>();
@@ -106,7 +106,7 @@ namespace Core.Framework.Network
     {
         public ITcpClientFactory<T> ClientFactory { get; }
 
-        protected TcpServerBase(ITcpClientFactory<T> clientFactory, MessageFactory factory, BufferPool pool)
+        protected TcpServerBase(ITcpClientFactory<T> clientFactory, MessageFactory factory, BufferPoolProvider pool)
             : base(factory, pool)
         {
             ClientFactory = clientFactory;

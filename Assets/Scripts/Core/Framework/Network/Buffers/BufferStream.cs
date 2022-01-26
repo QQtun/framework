@@ -5,7 +5,7 @@ using System.IO;
 
 namespace Core.Framework.Network.Buffers
 {
-    public class SendBufferStream : Stream
+    public class BufferStream : Stream
     {
         public override bool CanRead => true;
 
@@ -23,24 +23,25 @@ namespace Core.Framework.Network.Buffers
 
         public override long Position
         {
-            get => _curIndex * SendBufferPool.BufferSize + _curOffset;
+            get => _curIndex * BufferBasePool.BufferSize + _curOffset;
             set => Seek(value, SeekOrigin.Begin);
         }
 
-        private SendBufferPool SendBufferPool { get; }
+        private BufferBasePool BufferBasePool { get; }
 
-        private List<SendBuffer> _sendBuffers;
+        private List<BufferBase> _pages;
         private int _curIndex;
         private int _curOffset;
 
         private long _length;
-        private int? _readingMessageLen;
-        private bool _messageParserRead;
 
-        public SendBufferStream(SendBufferPool sendBufferPool)
+        // ReadMessage時只能Read正確的長度 讀完時回0, 不然無法正確序列化 
+        private int? _readingMessageLen;
+
+        public BufferStream(BufferBasePool sendBufferPool)
         {
-            SendBufferPool = sendBufferPool;
-            _sendBuffers = new List<SendBuffer>(5);
+            BufferBasePool = sendBufferPool;
+            _pages = new List<BufferBase>(5);
         }
 
         public override void Flush()
@@ -51,83 +52,90 @@ namespace Core.Framework.Network.Buffers
         {
             if (_readingMessageLen.HasValue)
             {
-                if (_messageParserRead)
+                if (_readingMessageLen.Value == 0)
                     return 0;
 
                 count = _readingMessageLen.Value;
-                _messageParserRead = true;
             }
 
             var readLen = 0;
-            for (; _curIndex < _sendBuffers.Count; )
+            for (; _curIndex < _pages.Count; )
             {
-                var bf = _sendBuffers[_curIndex];
-                var len = Math.Min(count, bf.DataSize - _curOffset);
+                var page = _pages[_curIndex];
+                var len = Math.Min(count, page.RamainingReadSize);
                 len = Math.Max(0, len);
-                len = Math.Min(len, bf.DataSize);
-                Array.Copy(bf.Buffer, _curOffset, buffer, offset, len);
+                page.Read(buffer, offset, len);
+
                 offset += len;
                 count -= len;
                 readLen += len;
                 _curOffset += len;
-                if(bf.DataSize - _curOffset == 0)
+
+                if(page.RamainingReadSize == 0)
                 {
                     _curIndex++;
                     _curOffset = 0;
                 }
+
                 if (count == 0)
                     break;
+            }
+
+            if(_readingMessageLen.HasValue)
+            {
+                _readingMessageLen -= readLen;
             }
             return readLen;
         }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
+            long newPos = 0;
             if(origin == SeekOrigin.End)
             {
-                var newPos = _length + offset;
-                newPos = Math.Max(0, newPos);
-                newPos = Math.Min(_length, newPos);
-                for (int i = 0; ;i++)
-                {
-                    if(newPos < SendBufferPool.BufferSize)
-                    {
-                        _curIndex = i;
-                        _curOffset = (int)newPos;
-                        break;
-                    }
-                    else
-                    {
-                        newPos -= SendBufferPool.BufferSize;
-                    }
-                }
+                newPos = _length + offset;
             }
             else if(origin == SeekOrigin.Current)
             {
-                var newPos = _curIndex * SendBufferPool.BufferSize + offset;
-                _curIndex = 0;
-                while (newPos >= SendBufferPool.BufferSize)
-                {
-                    newPos -= SendBufferPool.BufferSize;
-                    _curIndex++;
-                }
-                _curOffset = (int)newPos;
+                newPos = _curIndex * BufferBasePool.BufferSize + _curOffset + offset;
             }
             else
             {
                 // begin
-                _curIndex = 0;
-                var newPos = Math.Min(_length, offset);
-                newPos = Math.Max(0, newPos);
-                while (newPos >= SendBufferPool.BufferSize)
+                newPos = offset;
+            }
+            newPos = Math.Max(0, newPos);
+            newPos = Math.Min(_length, newPos);
+
+            _curIndex = 0;
+            while (newPos >= BufferBasePool.BufferSize)
+            {
+                newPos -= BufferBasePool.BufferSize;
+                _curIndex++;
+            }
+            _curOffset = (int)newPos;
+
+            for (int i = 0; i < _pages.Count; i++)
+            {
+                var page = _pages[i];
+                if (i < _curIndex)
                 {
-                    newPos -= SendBufferPool.BufferSize;
-                    _curIndex++;
+                    page.ReadPosition = page.DataSize;
+                    page.WritePosition = page.DataSize;
                 }
-                _curOffset = (int)newPos;
+                else if(i > _curIndex)
+                {
+                    page.ReadPosition = 0;
+                    page.WritePosition = 0;
+                }
+                else
+                {
+                    page.ReadPosition = _curOffset;
+                    page.WritePosition = _curOffset;
+                }
             }
 
-            return _curIndex * SendBufferPool.BufferSize + _curOffset;
+            return Position;
         }
 
         public override void SetLength(long value)
@@ -135,21 +143,32 @@ namespace Core.Framework.Network.Buffers
             throw new NotImplementedException();
         }
 
+        public void Write(BufferBase buffer)
+        {
+            Write(buffer.Buffer, buffer.WritePosition, buffer.RemainingWriteSize);
+        }
+
         public override void Write(byte[] buffer, int offset, int count)
         {
             while (count != 0)
             {
-                if (_sendBuffers.Count == 0
-                    || _sendBuffers[_sendBuffers.Count - 1].BufferSize == _sendBuffers[_sendBuffers.Count - 1].DataSize)
+                if (_pages.Count == 0
+                    || _pages[_pages.Count - 1].RemainingWriteSize == 0)
                 {
-                    _sendBuffers.Add(SendBufferPool.Alloc());
+                    _pages.Add(BufferBasePool.Alloc());
                 }
 
-                var sendBuffer = _sendBuffers[_sendBuffers.Count - 1];
-                sendBuffer.WriteToBuffer(buffer, offset, count, out var realWriteCount);
+                var page = _pages[_pages.Count - 1];
+                var realWriteCount = page.Write(buffer, offset, count);
                 offset += realWriteCount;
                 count -= realWriteCount;
                 _length += realWriteCount;
+                _curOffset += realWriteCount;
+                if(page.RemainingWriteSize == 0)
+                {
+                    _curIndex++;
+                    _curOffset = 0;
+                }
             }
         }
 
@@ -162,26 +181,26 @@ namespace Core.Framework.Network.Buffers
             message.Serialize(this);
 
             // footer
-            var footer = Footer.Create(_sendBuffers);
+            var footer = Footer.Create(_pages);
             message.Footer = footer;
             footer.Serialize(this);
         }
 
-        public void ForeachBuffer(Action<SendBuffer> handler)
+        public void ForeachBuffer(Action<BufferBase> handler)
         {
-            for (int i = 0; i < _sendBuffers.Count; i++)
+            for (int i = 0; i < _pages.Count; i++)
             {
-                handler?.Invoke(_sendBuffers[i]);
+                handler?.Invoke(_pages[i]);
             }
         }
 
         public void Clear()
         {
-            for (int i = 0; i < _sendBuffers.Count; i++)
+            for (int i = 0; i < _pages.Count; i++)
             {
-                SendBufferPool.Dealloc(_sendBuffers[i]);
+                BufferBasePool.Dealloc(_pages[i]);
             }
-            _sendBuffers.Clear();
+            _pages.Clear();
             _length = 0;
             _curIndex = 0;
             _curOffset = 0;
@@ -209,7 +228,6 @@ namespace Core.Framework.Network.Buffers
         public Message ReadMessage(MessageFactory factory, Header header)
         {
             _readingMessageLen = header.ContentSize;
-            _messageParserRead = false;
             var msg = factory.CreateMessage(header, this);
             _readingMessageLen = null;
             return msg;
@@ -217,20 +235,23 @@ namespace Core.Framework.Network.Buffers
 
         public void ReleaseUnuseBuffer()
         {
-            for (int i = _sendBuffers.Count - 1; i >= 0; i--)
-            {
-                if (i < _curIndex)
-                {
-                    var buffer = _sendBuffers[i];
-                    _length -= buffer.DataSize;
-                    _curIndex--;
-                    SendBufferPool.Dealloc(buffer);
-                    _sendBuffers.RemoveAt(i);
-                }
-            }
-            if (_sendBuffers.Count == 1 && _length == _curOffset)
+            if(RemainingDataSize == 0)
             {
                 Clear();
+            }
+            else
+            {
+                for (int i = _pages.Count - 1; i >= 0; i--)
+                {
+                    if (i < _curIndex)
+                    {
+                        var buffer = _pages[i];
+                        _length -= buffer.DataSize;
+                        _curIndex--;
+                        BufferBasePool.Dealloc(buffer);
+                        _pages.RemoveAt(i);
+                    }
+                }
             }
         }
     }

@@ -33,7 +33,7 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
         _msgFactory.RegisterXMLStringMessage(2);
 
         var clientFactory = new ClientFactoryForServer();
-        _server = new TcpServerTest(clientFactory, _msgFactory, BufferPool.Default);
+        _server = new TcpServerTest(clientFactory, _msgFactory, BufferPoolProvider.Default);
         clientFactory.Server = _server;
         _server.Start(IPAddress.Parse(ip), port);
 
@@ -49,7 +49,7 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
     [Button]
     public void Connect()
     {
-        var client = new TcpClientForClient(_msgFactory, BufferPool.Default);
+        var client = new TcpClientForClient(_msgFactory, BufferPoolProvider.Default);
         _clients.Add(client);
         client.Connect(IPAddress.Parse(ip), port);
     }
@@ -98,7 +98,7 @@ public class TcpTest : MonoBehaviour, IMessageNameConverter
 
 public class TcpClientForClient : TcpClientBase
 {
-    public TcpClientForClient(MessageFactory factory, BufferPool pool) : base(factory, pool)
+    public TcpClientForClient(MessageFactory factory, BufferPoolProvider pool) : base(factory, pool)
     {
     }
 
@@ -198,7 +198,7 @@ public class TcpClientForServer : TcpClientBaseForServer<TcpClientForServer>
 
 public class TcpServerTest : TcpServerBase<TcpClientForServer>
 {
-    public TcpServerTest(ITcpClientFactory<TcpClientForServer> clientFactory, MessageFactory factory, BufferPool pool)
+    public TcpServerTest(ITcpClientFactory<TcpClientForServer> clientFactory, MessageFactory factory, BufferPoolProvider pool)
         : base(clientFactory, factory, pool)
     {
     }
