@@ -84,7 +84,7 @@ namespace Core.Framework.Network
             }
         }
 
-        public void MainLoop()
+        public virtual void MainLoop()
         {
             _accepter?.MainLoop();
 

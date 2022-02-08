@@ -198,7 +198,7 @@ namespace Core.Framework.Network
                 Disconnect(reason, invokeNow);
         }
 
-        public void MainLoop()
+        public virtual void MainLoop()
         {
             lock (_connectState)
             {
@@ -274,7 +274,7 @@ namespace Core.Framework.Network
             return true;
         }
 
-        private void Send(Message msg)
+        public void Send(Message msg)
         {
             lock (_sendState)
             {
