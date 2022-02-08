@@ -216,7 +216,14 @@ namespace Core.Framework.Network
             }
             for (int i = 0; i < _recvMsgsMainLoop.Count; i++)
             {
-                OnReceiveMessage(_recvMsgsMainLoop[i]);
+                try
+                {
+                    OnReceiveMessage(_recvMsgsMainLoop[i]);
+                }
+                catch(Exception ex)
+                {
+                    Debug.LogError(ex);
+                }
             }
             _recvMsgsMainLoop.Clear();
 

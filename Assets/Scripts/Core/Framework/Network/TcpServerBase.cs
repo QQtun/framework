@@ -1,5 +1,7 @@
 ﻿using Core.Framework.Network.Buffers;
 using Core.Framework.Network.Data;
+using LogUtil;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -52,16 +54,23 @@ namespace Core.Framework.Network
 
         public void Stop(DisconnectReason reason)
         {
-            _tmpList.Clear();
-            _tmpList.AddRange(_clients);
-            foreach (var client in _tmpList)
+            var tmpList = new List<TcpClientBase>();
+            tmpList.AddRange(_clients);
+
+            foreach (var client in tmpList)
             {
-                client.Disconnect(reason, true);
+                try
+                {
+                    client.Disconnect(reason, true);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError(ex);
+                }
             }
 
             _clients.Clear();
             _clientToNodeDic.Clear();
-            _tmpList.Clear();
             _accepter?.Stop(true);
             _accepter = null;
         }
@@ -83,7 +92,14 @@ namespace Core.Framework.Network
             _tmpList.AddRange(_clients);
             foreach (var client in _tmpList)
             {
-                client.MainLoop();
+                try
+                {
+                    client.MainLoop();
+                }
+                catch(Exception ex)
+                {
+                    Debug.LogError(ex);
+                }
             }
         }
 

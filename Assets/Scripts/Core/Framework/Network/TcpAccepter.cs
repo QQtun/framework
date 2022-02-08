@@ -92,7 +92,14 @@ namespace Core.Framework.Network
             {
                 while (_newClients.Count > 0)
                 {
-                    OnAccept?.Invoke(_newClients.Dequeue());
+                    try
+                    {
+                        OnAccept?.Invoke(_newClients.Dequeue());
+                    }
+                    catch(Exception ex)
+                    {
+                        Debug.LogError(ex);
+                    }
                 }
             }
             lock (_stopState)
